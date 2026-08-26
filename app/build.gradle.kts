@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -9,18 +11,40 @@ android {
         version = release(37)
     }
 
+    val localProperties = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use { localProperties.load(it) }
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = localProperties.getProperty("keystore.path")?.let { file(it) }
+            storePassword = localProperties.getProperty("keystore.password")
+            keyAlias = localProperties.getProperty("key.alias")
+            keyPassword = localProperties.getProperty("key.password")
+        }
+    }
+
     defaultConfig {
         applicationId = "com.safe.comsafevolumefixer"
         minSdk = 29
         targetSdk = 37
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 6
+        versionName = "1.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             optimization {
                 enable = false
             }
@@ -32,6 +56,15 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+}
+
+// Automatically rename the output APK
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            output.outputFileName.set("SafeVolumeFixer-v${android.defaultConfig.versionName}.apk")
+        }
     }
 }
 
