@@ -4,6 +4,13 @@
 
 On many Android devices, the system automatically lowers your volume and displays a popup after 20 hours of listening or when a certain "dose" is reached. This app automates the process of resetting those flags in real-time, ensuring your audio experience is never interrupted.
 
+## Why use this?
+If you are looking for a way to **disable the Android high volume warning without root**, this is the solution. It is designed to:
+* **Stop Android from automatically lowering volume** during long listening sessions.
+* **Permanently dismiss the hearing safety popup** that appears on Samsung, Pixel, and other devices.
+* Provide an **Android 14 CSD volume lowering fix** to bypass the new "Calculated Sound Dose" limits.
+* **Bypass the Samsung media volume limit** and similar manufacturer-specific restrictions.
+
 ## Features
 
 *   **Auto-Bypass**: Instantly suppresses the "High volume can damage your hearing" popup.
