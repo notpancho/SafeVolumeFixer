@@ -12,6 +12,7 @@ On many Android devices, the system automatically lowers your volume and display
 *   **"Rage Mode" Protection**: Hardened against system spam attacks—if the system tries to force the setting back rapidly, the app counters it instantly.
 *   **Persistence**: Automatically applies fixes on device boot, wired headphone connection, and Bluetooth pairing.
 *   **Low Footprint**: Runs as a highly optimized background service with negligible battery impact.
+*   **Native & Clean**: Does not rely on any third-party tools, external applications, or heavy frameworks. It works directly with Android\'s internal settings.
 *   **Privacy First**: No internet permissions, no data collection. Everything happens locally on your device.
 
 ## 📸 Gallery
