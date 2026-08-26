@@ -1,9 +1,5 @@
 # Safe Volume Fixer 🔊🚫
 
-<p align="center">
-  <img src="screenshots/dashboard.png" width="300" alt="Dashboard">
-</p>
-
 **Safe Volume Fixer** is a lightweight Android utility designed to permanently bypass mandatory "Safe Volume" warnings and "Calculated Sound Dose" (CSD) restrictions. 
 
 On many Android devices, the system automatically lowers your volume and displays a popup after 20 hours of listening or when a certain "dose" is reached. This app automates the process of resetting those flags in real-time, ensuring your audio experience is never interrupted.
@@ -18,11 +14,12 @@ On many Android devices, the system automatically lowers your volume and display
 *   **Low Footprint**: Runs as a highly optimized background service with negligible battery impact.
 *   **Privacy First**: No internet permissions, no data collection. Everything happens locally on your device.
 
-## 📸 Screenshots
+## 📸 Gallery
 
 <p align="center">
-  <img src="screenshots/how_it_works.png" width="300" alt="How it Works">
-  <img src="screenshots/logs.png" width="300" alt="Fix Logs">
+  <img src="screenshots/dashboard.png" width="250" alt="Dashboard">
+  <img src="screenshots/how_it_works.png" width="250" alt="How it Works">
+  <img src="screenshots/logs.png" width="250" alt="Fix Logs">
 </p>
 
 ## 🛠️ Setup Instructions (ADB Required)
