@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">Safe Volume Fixer</string>
+    <string name="ui_title">VolumeFixer Status</string>
+    <string name="status_permission">Permission Status: </string>
+    <string name="status_service">Service Status: </string>
+    <string name="service_info">The fix is applied on boot, on audio connection, and every 30 minutes.</string>
+    <string name="granted">GRANTED</string>
+    <string name="not_granted">NOT GRANTED</string>
+    <string name="active">ACTIVE</string>
+    <string name="inactive">INACTIVE</string>
+    <string name="adb_instruction_title">Setup Instructions</string>
+    <string name="adb_instruction_body">1. Connect your phone to your PC via USB.\n2. Enable <b>USB Debugging</b> in your phone\'s Developer Options.\n3. Open a terminal (CMD, PowerShell, or Bash) on your computer.\n4. Copy, paste, and run the command below:</string>
+    <string name="adb_explanation"><b>What this does:</b>\nThis grants the app permission to modify hidden system flags (WRITE_SECURE_SETTINGS) that are normally restricted. It allows the app to talk directly to the Android System Server to override safety thresholds and whitelists it from battery optimization so it can monitor connections reliably.</string>
+    <string name="adb_command">adb shell pm grant com.safe.comsafevolumefixer android.permission.WRITE_SECURE_SETTINGS; adb shell dumpsys deviceidle whitelist +com.safe.comsafevolumefixer</string>
+    <string name="about_title">How it works</string>
+    <string name="about_body">Safe Volume Fixer automates the process of bypassing Android\'s mandatory high-volume warnings. It works by monitoring system events and instantly resetting specific system flags:\n\n• <b>Auto-Bypass</b>: It sets the system volume state to \'Acknowledged\', so the warning popup never appears.\n\n• <b>CSD &amp; History Wipe</b>: It resets the legacy 20-hour timer and the newer Android 14+ \"Calculated Sound Dose\" (CSD) tracking. Crucially, it also wipes the hidden \"Dose Records\" history so the system never thinks you\'ve exceeded your weekly limit.\n\n• <b>Continuous Protection</b>: The fix is applied on device startup (even before unlock), every time headphones/Bluetooth are connected, and every 30 minutes via a background timer.\n\n• <b>Low Footprint</b>: Runs as a lightweight background service with minimal battery impact.\n\n<i>Hint: Try tapping the version number 5 times for a secret...</i></string>
+    <string name="logs_title">Recent Fix Events</string>
+    <string name="btn_clear_logs">Clear Logs</string>
+    <string name="no_logs">No events recorded yet.</string>
+    <string name="btn_battery_optimization">Ignore Battery Optimization</string>
+    <string name="safety_disclaimer_title">⚠️ SAFETY DISCLAIMER</string>
+    <string name="safety_disclaimer_body">This application completely bypasses the safety mechanisms built into Android to protect your hearing. Prolonged exposure to high volume can cause permanent hearing damage.\n\n<b>NO WARRANTY</b>: This software is provided \"as is\" without any warranty. The developer is not responsible for any damage to your hearing, hardware, or software. <b>USE AT YOUR OWN RISK.</b></string>
+    <string name="version_label">Version: %1$s (%2$d)</string>
+    <string name="installation_confirmation" translatable="false">VolumeFixer is installed!\n\n1. Run the ADB command on your PC to grant permissions.\n2. You can then close this app forever.</string>
+</resources>

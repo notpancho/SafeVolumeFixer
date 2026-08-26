@@ -1,0 +1,29 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer ring -->
+    <path
+        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0"
+        android:strokeWidth="4"
+        android:strokeColor="#FFFFFF" />
+
+    <!-- Perfectly Centered Ear Icon -->
+    <group
+        android:translateX="-16"
+        android:translateY="6">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M65.34,68.42c-0.81,0 -1.57,-0.17 -2.13,-0.42c-1.99,-1.04 -3.39,-2.47 -4.79,-6.66c-1.43,-4.37 -4.12,-6.41 -6.69,-8.4c-2.21,-1.71 -4.51,-3.47 -6.5,-7.08c-1.51,-2.69 -2.32,-6.39 -2.32,-11.22c0,-10.81 8.71,-19.6 19.46,-19.6c4.79,0 9.3,1.65 12.82,4.7l-4.4,4.42c-2.32,-1.96 -5.18,-3.08 -8.35,-3.08c-7.73,0 -14.06,6.27 -14.06,13.99c0,3.58 0.64,6.13 1.68,8.06c1.43,2.6 3.16,3.92 5.12,5.43c2.63,2.02 5.57,4.25 7.7,10.69c1.54,4.62 3.5,7 6.78,8.71c1.09,0.59 2.21,0.84 3.36,0.84c5.74,0 10.45,-5.07 10.45,-11.31c0,-3.25 -1.4,-6.24 -3.98,-8.48l4.26,-4.06c2.8,2.69 4.87,7.03 4.87,11.82c0,9.24 -7.28,16.8 -16.24,16.8z M59.74,34.82c0,-3.08 2.52,-5.6 5.6,-5.6s5.6,2.52 5.6,5.6s-2.52,5.6 -5.6,5.6s-5.6,-2.52 -5.6,-5.6z" />
+    </group>
+
+    <!-- Red Cross (Centered) -->
+    <path
+        android:pathData="M30,30 L78,78 M78,30 L30,78"
+        android:strokeWidth="8"
+        android:strokeColor="#FF5252"
+        android:strokeLineCap="round" />
+
+</vector>
