@@ -1,5 +1,9 @@
 # Safe Volume Fixer 🔊🚫
 
+<p align="center">
+  <img src="screenshots/dashboard.png" width="300" alt="Dashboard">
+</p>
+
 **Safe Volume Fixer** is a lightweight Android utility designed to permanently bypass mandatory "Safe Volume" warnings and "Calculated Sound Dose" (CSD) restrictions. 
 
 On many Android devices, the system automatically lowers your volume and displays a popup after 20 hours of listening or when a certain "dose" is reached. This app automates the process of resetting those flags in real-time, ensuring your audio experience is never interrupted.
@@ -14,11 +18,18 @@ On many Android devices, the system automatically lowers your volume and display
 *   **Low Footprint**: Runs as a highly optimized background service with negligible battery impact.
 *   **Privacy First**: No internet permissions, no data collection. Everything happens locally on your device.
 
+## 📸 Screenshots
+
+<p align="center">
+  <img src="screenshots/how_it_works.png" width="300" alt="How it Works">
+  <img src="screenshots/logs.png" width="300" alt="Fix Logs">
+</p>
+
 ## 🛠️ Setup Instructions (ADB Required)
 
 Because this app modifies protected system settings, Android requires you to grant it a special permission via ADB (Android Debug Bridge).
 
-1.  **Download & Install**: Sideload the latest `app-release.apk` onto your phone.
+1.  **Download & Install**: Sideload the latest APK onto your phone.
 2.  **Enable Debugging**: Go to *Settings > Developer Options* and enable **USB Debugging**.
 3.  **Connect to PC**: Plug your phone into your computer.
 4.  **Run Command**: Open a terminal (CMD, PowerShell, or Bash) and run the following:
