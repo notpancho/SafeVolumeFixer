@@ -103,7 +103,10 @@ class MainActivity : ComponentActivity() {
                 Settings.Global.putInt(resolver, "safe_audio_volume_enforced", 0)
                 Settings.Global.putFloat(resolver, "audio_safe_csd_current_value", 0.0f)
                 Settings.Global.putString(resolver, "audio_safe_csd_dose_records", "[]")
-                Logger.log(context, "Fix applied manually via App Open")
+                Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f)
+                Settings.Global.putInt(resolver, "audio_safe_csd_as_a_feature_enabled", 0)
+                
+                Logger.log(context, "Hardened fix applied (Manual)")
             } catch (e: SecurityException) {
                 Logger.log(context, "ERROR: Permission missing on manual fix")
             }
