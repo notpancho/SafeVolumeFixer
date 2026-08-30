@@ -13,9 +13,8 @@ class BootReceiver : BroadcastReceiver() {
             try {
                 val resolver = context.contentResolver
                 
-                // 1. Log CURRENT state at Boot
-                val currentState = SettingUtils.getTargetFlagsState(context)
-                Logger.log(context, "[TRIGGER: Boot ($action)] $currentState")
+                // 1. Log the TRIGGER at Boot
+                Logger.log(context, ">>> TRIGGER: Boot ($action)")
 
                 // 2. Apply fixes
                 Settings.Global.putInt(resolver, "audio_safe_volume_state", 2)
@@ -26,8 +25,9 @@ class BootReceiver : BroadcastReceiver() {
                 Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f)
                 Settings.Global.putInt(resolver, "audio_safe_csd_as_a_feature_enabled", 0)
 
-                // 3. Log action
-                Logger.log(context, "ACTION: All flags reset to safe values.")
+                // 3. Log action and divider
+                Logger.log(context, "ACTION: Forced safety flags to UNRESTRICTED.")
+                Logger.log(context, "---")
 
                 val serviceIntent = Intent(context, FixerService::class.java)
                 context.startForegroundService(serviceIntent)

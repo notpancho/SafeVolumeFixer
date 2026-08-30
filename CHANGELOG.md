@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.1] - 2026-08-30
+### Added
+- **High-Resolution Logging**: Overhauled the logging system to provide detailed event grouping and explicit trigger tracking.
+- **Visual Dividers**: Added separators between fix events for better readability.
+- **Trigger Identification**: Logs now specify exactly which system setting or event triggered the fix.
+
+### Fixed
+- **Log Ordering & Persistence**: Improved chronological sorting and multi-process sync for real-time visibility.
+
 ## [1.7.0] - 2026-08-30
 ### Added
 - **Detailed Flag Logging**: Captured the state of `audio_safe_volume_state`, `unsafe_volume_music_active_ms`, `safe_audio_volume_enforced`, `audio_safe_csd_current_value`, and `audio_safe_csd_next_warning` immediately before resetting them.

@@ -12,6 +12,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.database.ContentObserver
+import android.net.Uri
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -27,11 +28,12 @@ class FixerService : Service() {
     private var lastFixTimestamp = 0L
     
     private val settingsObserver = object : ContentObserver(handler) {
-        override fun onChange(selfChange: Boolean) {
-            super.onChange(selfChange)
+        override fun onChange(selfChange: Boolean, uri: Uri?) {
+            super.onChange(selfChange, uri)
             val now = System.currentTimeMillis()
-            if (now - lastFixTimestamp > 800) { // Slight debounce
-                resetVolumeSettings(applicationContext, "System Watcher")
+            if (now - lastFixTimestamp > 800) {
+                val key = uri?.lastPathSegment ?: "unknown"
+                resetVolumeSettings(applicationContext, "System Watcher [$key]")
             }
         }
     }
@@ -63,16 +65,23 @@ class FixerService : Service() {
         registerReceiver(receiver, filter)
 
         val resolver = contentResolver
-        val keys = listOf("audio_safe_volume_state", "audio_safe_csd_current_value", "audio_safe_csd_next_warning", "safe_audio_volume_enforced")
+        val keys = listOf(
+            "audio_safe_volume_state", 
+            "audio_safe_csd_current_value", 
+            "audio_safe_csd_next_warning", 
+            "safe_audio_volume_enforced"
+        )
         keys.forEach { key ->
             try {
                 resolver.registerContentObserver(Settings.Global.getUriFor(key), false, settingsObserver)
-            } catch (e: Exception) {}
+            } catch (e: Exception) {
+                Log.e("VolumeFixer", "Could not observe $key")
+            }
         }
 
         startPeriodicReset()
         startForeground(NOTIFICATION_ID, createNotification())
-        resetVolumeSettings(this, "Service Initialization")
+        resetVolumeSettings(this, "Service Start")
     }
 
     private fun startPeriodicReset() {
@@ -81,7 +90,7 @@ class FixerService : Service() {
             override fun run() {
                 resetVolumeSettings(applicationContext, "Background Guard")
             }
-        }, 60000, 1000 * 60 * 15) // Every 15 minutes
+        }, 60000, 1000 * 60 * 15)
     }
 
     override fun onDestroy() {
@@ -95,14 +104,13 @@ class FixerService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun resetVolumeSettings(context: Context, source: String) {
-        val now = System.currentTimeMillis()
-        lastFixTimestamp = now
+        lastFixTimestamp = System.currentTimeMillis()
 
         try {
             val resolver = context.contentResolver
             
-            // Capture 'Before' state for logging
-            val stateBefore = SettingUtils.getTargetFlagsState(context)
+            // Log the TRIGGER event with a clean timestamp
+            Logger.log(context, ">>> TRIGGER: $source")
             
             // Apply Fixes
             Settings.Global.putInt(resolver, "audio_safe_volume_state", 2)
@@ -113,14 +121,13 @@ class FixerService : Service() {
             Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f)
             Settings.Global.putInt(resolver, "audio_safe_csd_as_a_feature_enabled", 0)
 
-            // Log detailed event
-            Logger.log(context, "EVENT [$source]")
-            Logger.log(context, "DETECTED: $stateBefore")
-            Logger.log(context, "ACTION: All flags force-reset to safe values.")
+            // Log ACTION taken
+            Logger.log(context, "ACTION: Forced safety flags to UNRESTRICTED.")
+            Logger.log(context, "---") // Divider for readability
             
             Log.d("VolumeFixer", "Fix applied: $source")
         } catch (e: SecurityException) {
-            Logger.log(context, "ERROR: System blocked permission for $source")
+            Logger.log(context, "CRITICAL ERROR: ADB Permission missing!")
         }
     }
 
@@ -130,7 +137,7 @@ class FixerService : Service() {
         manager.createNotificationChannel(NotificationChannel(channelId, "Volume Fixer", NotificationManager.IMPORTANCE_LOW))
 
         return NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Safe Volume Fixer Active")
+            .setContentTitle("VolumeFixer Active")
             .setContentText("Watching system for restrictions...")
             .setSmallIcon(android.R.drawable.ic_lock_silent_mode)
             .setPriority(NotificationCompat.PRIORITY_LOW)

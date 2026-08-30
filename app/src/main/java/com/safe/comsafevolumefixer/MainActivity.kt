@@ -99,9 +99,8 @@ class MainActivity : ComponentActivity() {
             try {
                 val resolver = context.contentResolver
                 
-                // 1. Log CURRENT state
-                val currentState = SettingUtils.getTargetFlagsState(context)
-                Logger.log(context, "[TRIGGER: $source] $currentState")
+                // 1. Log the TRIGGER
+                Logger.log(context, ">>> TRIGGER: $source")
 
                 // 2. Apply all fixes
                 Settings.Global.putInt(resolver, "audio_safe_volume_state", 2)
@@ -112,12 +111,12 @@ class MainActivity : ComponentActivity() {
                 Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f)
                 Settings.Global.putInt(resolver, "audio_safe_csd_as_a_feature_enabled", 0)
                 
-                // 3. Log action
-                Logger.log(context, "ACTION: All flags reset to safe values.")
+                // 3. Log ACTION and divider
+                Logger.log(context, "ACTION: Forced safety flags to UNRESTRICTED.")
+                Logger.log(context, "---")
                 
             } catch (e: SecurityException) {
-                Log.e("VolumeFixer", "Fix failed: ${e.message}")
-                Logger.log(context, "ERROR: Permission missing on manual fix")
+                Logger.log(context, "CRITICAL ERROR: ADB Permission missing!")
             }
         }
     }
@@ -269,10 +268,21 @@ fun LogsScreen(onBack: () -> Unit) {
         } else {
             Column(modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
                 logs.forEach { log ->
-                    ListItem(
-                        headlineContent = { Text(log, style = MaterialTheme.typography.bodySmall) }
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    if (log.startsWith("---")) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 2.dp, color = MaterialTheme.colorScheme.outline)
+                    } else {
+                        ListItem(
+                            headlineContent = { 
+                                Text(
+                                    text = log, 
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (log.contains("TRIGGER")) MaterialTheme.colorScheme.primary 
+                                            else if (log.contains("ERROR")) MaterialTheme.colorScheme.error 
+                                            else MaterialTheme.colorScheme.onSurface
+                                ) 
+                            }
+                        )
+                    }
                 }
             }
         }

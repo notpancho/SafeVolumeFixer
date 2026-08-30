@@ -7,15 +7,14 @@ import java.util.*
 object Logger {
     private const val PREFS_NAME = "VolumeFixerLogs"
     private const val KEY_LOGS = "logs"
-    private const val MAX_LOGS = 100 // Increased limit for detailed logs
+    private const val MAX_LOGS = 150
 
     fun log(context: Context, message: String) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val logs = prefs.getStringSet(KEY_LOGS, LinkedHashSet())?.toMutableList() ?: mutableListOf()
         
-        // Full date and time format
-        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-        val entry = "$timestamp | $message"
+        val timestamp = SimpleDateFormat("yyyy-MM-dd | HH:mm:ss", Locale.getDefault()).format(Date())
+        val entry = if (message == "---") "-----------------------------------" else "$timestamp | $message"
         
         logs.add(0, entry)
         
@@ -25,6 +24,9 @@ object Logger {
 
     fun getLogs(context: Context): List<String> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        // Since we add to index 0, the newest are already first if we just use the list.
+        // But SharedPreferences.getStringSet doesn't guarantee order. 
+        // We'll sort by the timestamp string we added.
         return prefs.getStringSet(KEY_LOGS, LinkedHashSet())?.toList()?.sortedDescending() ?: emptyList()
     }
 
