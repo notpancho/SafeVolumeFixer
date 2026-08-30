@@ -7,29 +7,25 @@ import java.util.*
 object Logger {
     private const val PREFS_NAME = "VolumeFixerLogs"
     private const val KEY_LOGS = "logs"
-    private const val MAX_LOGS = 50
+    private const val MAX_LOGS = 100 // Increased limit for detailed logs
 
     fun log(context: Context, message: String) {
-        // Use Multi-Process SharedPreferences to ensure the UI sees background service logs
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val logs = prefs.getStringSet(KEY_LOGS, LinkedHashSet())?.toMutableList() ?: mutableListOf()
         
-        val timestamp = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+        // Full date and time format
+        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
         val entry = "$timestamp | $message"
         
-        // Add to top of list
         logs.add(0, entry)
         
-        // Keep only last 50
         val trimmedLogs = if (logs.size > MAX_LOGS) logs.take(MAX_LOGS) else logs
-        
         prefs.edit().putStringSet(KEY_LOGS, LinkedHashSet(trimmedLogs)).apply()
     }
 
     fun getLogs(context: Context): List<String> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        // Retrieve and sort to ensure chronological order
-        return prefs.getStringSet(KEY_LOGS, LinkedHashSet())?.toList()?.sortedByDescending { it } ?: emptyList()
+        return prefs.getStringSet(KEY_LOGS, LinkedHashSet())?.toList()?.sortedDescending() ?: emptyList()
     }
 
     fun clearLogs(context: Context) {

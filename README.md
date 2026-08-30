@@ -22,6 +22,16 @@ If you are looking for a way to **disable the Android high volume warning withou
 *   **Native & Clean**: Does not rely on any third-party tools, external applications, or heavy frameworks. It works directly with Android's internal settings.
 *   **Privacy First**: No internet permissions, no data collection. Everything happens locally on your device.
 
+## Understanding the Logs
+
+The app includes a dedicated History screen to help you monitor system behavior. Each fix event is logged with three parts:
+*   **EVENT**: The trigger that caused the fix (e.g., `System Watcher` detected a change, `Boot` sequence started, or `Background Guard` ran).
+*   **DETECTED**: A snapshot of the system flags *before* the fix was applied. 
+    *   `State=1`: The "Safe Volume" warning was active.
+    *   `CSD > 1.0`: The Sound Dose had reached a level where Android starts limiting volume.
+    *   `Enforced=1`: The system safety enforcement was enabled.
+*   **ACTION**: Confirmation that all flags were successfully reset to their unrestricted values.
+
 ## Gallery
 
 <p align="center">

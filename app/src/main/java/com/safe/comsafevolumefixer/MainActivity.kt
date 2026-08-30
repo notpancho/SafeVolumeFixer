@@ -57,7 +57,7 @@ enum class Screen {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        applyFix(this)
+        applyFix(this, "Manual/App Open")
         startFixerService()
 
         setContent {
@@ -95,9 +95,15 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
-        fun applyFix(context: Context) {
+        fun applyFix(context: Context, source: String) {
             try {
                 val resolver = context.contentResolver
+                
+                // 1. Log CURRENT state
+                val currentState = SettingUtils.getTargetFlagsState(context)
+                Logger.log(context, "[TRIGGER: $source] $currentState")
+
+                // 2. Apply all fixes
                 Settings.Global.putInt(resolver, "audio_safe_volume_state", 2)
                 Settings.Secure.putInt(resolver, "unsafe_volume_music_active_ms", 0)
                 Settings.Global.putInt(resolver, "safe_audio_volume_enforced", 0)
@@ -106,8 +112,11 @@ class MainActivity : ComponentActivity() {
                 Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f)
                 Settings.Global.putInt(resolver, "audio_safe_csd_as_a_feature_enabled", 0)
                 
-                Logger.log(context, "Hardened fix applied (Manual)")
+                // 3. Log action
+                Logger.log(context, "ACTION: All flags reset to safe values.")
+                
             } catch (e: SecurityException) {
+                Log.e("VolumeFixer", "Fix failed: ${e.message}")
                 Logger.log(context, "ERROR: Permission missing on manual fix")
             }
         }
@@ -198,6 +207,7 @@ fun StatusScreen(onNavigateToHowItWorks: () -> Unit, onNavigateToLogs: () -> Uni
                     @Suppress("DEPRECATION")
                     Text(text = adbCommand, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(8.dp))
+                    @Suppress("DEPRECATION")
                     Button(onClick = { clipboardManager.setText(AnnotatedString(adbCommand)) }, modifier = Modifier.align(Alignment.End)) { Text("Copy Command") }
                 }
             }
@@ -260,7 +270,7 @@ fun LogsScreen(onBack: () -> Unit) {
             Column(modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
                 logs.forEach { log ->
                     ListItem(
-                        headlineContent = { Text(log, style = MaterialTheme.typography.bodyMedium) }
+                        headlineContent = { Text(log, style = MaterialTheme.typography.bodySmall) }
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }

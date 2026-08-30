@@ -13,6 +13,11 @@ class BootReceiver : BroadcastReceiver() {
             try {
                 val resolver = context.contentResolver
                 
+                // 1. Log CURRENT state at Boot
+                val currentState = SettingUtils.getTargetFlagsState(context)
+                Logger.log(context, "[TRIGGER: Boot ($action)] $currentState")
+
+                // 2. Apply fixes
                 Settings.Global.putInt(resolver, "audio_safe_volume_state", 2)
                 Settings.Secure.putInt(resolver, "unsafe_volume_music_active_ms", 0)
                 Settings.Global.putInt(resolver, "safe_audio_volume_enforced", 0)
@@ -21,13 +26,16 @@ class BootReceiver : BroadcastReceiver() {
                 Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f)
                 Settings.Global.putInt(resolver, "audio_safe_csd_as_a_feature_enabled", 0)
 
+                // 3. Log action
+                Logger.log(context, "ACTION: All flags reset to safe values.")
+
                 val serviceIntent = Intent(context, FixerService::class.java)
                 context.startForegroundService(serviceIntent)
 
                 Log.d("VolumeFixer", "Hardened Boot Fix applied ($action).")
-                Logger.log(context, "Hardened fix: Boot ($action)")
             } catch (e: SecurityException) {
-                Logger.log(context, "ERROR: Boot permission failure")
+                Log.e("VolumeFixer", "ERROR: Boot permission failure")
+                Logger.log(context, "ERROR: Permission missing at Boot")
             }
         }
     }
