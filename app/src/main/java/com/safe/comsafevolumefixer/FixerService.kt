@@ -17,6 +17,7 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -86,7 +87,12 @@ class FixerService : Service() {
             @Suppress("DEPRECATION")
             addAction("android.media.VOLUME_CHANGED_ACTION")
         }
-        registerReceiver(receiver, filter)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(receiver, filter, RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(receiver, filter)
+        }
 
         val resolver = contentResolver
         val globalKeys = listOf(
