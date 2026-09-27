@@ -14,7 +14,9 @@ If you are looking for a way to **disable the Android high volume warning withou
 ## Features
 
 *   **Auto-Bypass**: Instantly suppresses the "High volume can damage your hearing" popup.
-*   **CSD History Wipe**: Clears the Android 14+ "Calculated Sound Dose" records to prevent weekly volume capping.
+*   **Media Volume Guard**: Automatically detects system-forced volume drops and restores media volume back to your previous level.
+*   **CSD 60s Force-Flush**: Clears Android 14+ "Calculated Sound Dose" records every 60 seconds to prevent background HAL attenuation.
+*   **Audio Focus Un-Ducking**: Automatically resets stuck audio ducking from notifications or voice assistants.
 *   **Real-Time Monitoring**: Uses a system watcher to detect if Android tries to sneakily reset restrictions and fixes them instantly.
 *   **"Rage Mode" Protection**: Hardened against system spam attacks—if the system tries to force the setting back rapidly, the app counters it instantly.
 *   **Persistence**: Automatically applies fixes on device boot, wired headphone connection, and Bluetooth pairing.

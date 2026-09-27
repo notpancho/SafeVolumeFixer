@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0] - 2026-08-30
+### Added
+- **Media Volume Guard (`VOLUME_CHANGED_ACTION`)**: Automatically detects when Android or Bluetooth audio stack drops the media volume index without user button presses, and instantly restores it back to previous levels.
+- **Audio Focus Reset**: Automatically clears stuck notification "ducking" by requesting and abandoning transient audio focus.
+- **60-Second CSD Force-Flush Engine**: Background timer now runs every 60 seconds to flush Sound Dose memory before it accumulates.
+
 ## [1.7.1] - 2026-08-30
 ### Added
 - **High-Resolution Logging**: Overhauled the logging system to provide detailed event grouping and explicit trigger tracking.

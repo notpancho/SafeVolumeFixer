@@ -1,5 +1,6 @@
 package com.safe.comsafevolumefixer
 
+import android.R
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -12,7 +13,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.database.ContentObserver
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -26,7 +31,8 @@ class FixerService : Service() {
     private var timer: Timer? = null
     private val handler = Handler(Looper.getMainLooper())
     private var lastFixTimestamp = 0L
-    
+    private var lastUserVolumeChangeTimestamp = 0L
+
     private val settingsObserver = object : ContentObserver(handler) {
         override fun onChange(selfChange: Boolean, uri: Uri?) {
             super.onChange(selfChange, uri)
@@ -42,13 +48,20 @@ class FixerService : Service() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
                 Intent.ACTION_HEADSET_PLUG -> {
-                    if (intent.getIntExtra("state", -1) == 1) resetVolumeSettings(context, "Wired Plug")
+                    if (intent.getIntExtra("state", -1) == 1) {
+                        resetVolumeSettings(context, "Wired Plug")
+                    }
                 }
-                BluetoothDevice.ACTION_ACL_CONNECTED -> resetVolumeSettings(context, "Bluetooth Link")
+                BluetoothDevice.ACTION_ACL_CONNECTED -> {
+                    resetVolumeSettings(context, "Bluetooth Link")
+                }
                 BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED -> {
                     if (intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_CONNECTED) {
                         resetVolumeSettings(context, "Bluetooth Audio")
                     }
+                }
+                "android.media.VOLUME_CHANGED_ACTION" -> {
+                    handleVolumeChange(context, intent)
                 }
             }
         }
@@ -56,19 +69,21 @@ class FixerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        
+
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_HEADSET_PLUG)
             addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
             addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED)
+            @Suppress("DEPRECATION")
+            addAction("android.media.VOLUME_CHANGED_ACTION")
         }
         registerReceiver(receiver, filter)
 
         val resolver = contentResolver
         val keys = listOf(
-            "audio_safe_volume_state", 
-            "audio_safe_csd_current_value", 
-            "audio_safe_csd_next_warning", 
+            "audio_safe_volume_state",
+            "audio_safe_csd_current_value",
+            "audio_safe_csd_next_warning",
             "safe_audio_volume_enforced"
         )
         keys.forEach { key ->
@@ -79,18 +94,70 @@ class FixerService : Service() {
             }
         }
 
+        // CSD 60-second Force-Flush Engine
         startPeriodicReset()
         startForeground(NOTIFICATION_ID, createNotification())
         resetVolumeSettings(this, "Service Start")
+    }
+
+    private fun handleVolumeChange(context: Context, intent: Intent) {
+        val streamType = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_TYPE", -1)
+        if (streamType == AudioManager.STREAM_MUSIC) {
+            val newVolume = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_VALUE", -1)
+            val prevVolume = intent.getIntExtra("android.media.EXTRA_PREV_VOLUME_STREAM_VALUE", -1)
+            val flags = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_FLAGS", 0)
+
+            val isUserButtonPress = (flags and AudioManager.FLAG_SHOW_UI) != 0
+
+            if (isUserButtonPress) {
+                lastUserVolumeChangeTimestamp = System.currentTimeMillis()
+                return
+            }
+
+            // If volume dropped without user pressing buttons (System Attenuation / Safe Volume Drop)
+            if (newVolume < prevVolume && (System.currentTimeMillis() - lastUserVolumeChangeTimestamp > 1500)) {
+                Logger.log(context, ">>> DROP DETECTED: Music Volume $prevVolume -> $newVolume")
+                resetVolumeSettings(context, "Auto Volume Drop Guard")
+                resetAudioFocus(context)
+
+                // Restore previous volume level
+                try {
+                    val audioManager = context.getSystemService(AUDIO_SERVICE) as AudioManager
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, prevVolume, 0)
+                    Logger.log(context, "ACTION: Restored Music Volume back to $prevVolume")
+                } catch (e: Exception) {
+                    Log.e("VolumeFixer", "Failed to restore volume: ${e.message}")
+                }
+            }
+        }
+    }
+
+    private fun resetAudioFocus(context: Context) {
+        try {
+            val audioManager = context.getSystemService(AUDIO_SERVICE) as AudioManager
+            val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build()
+                )
+                .build()
+            audioManager.requestAudioFocus(focusRequest)
+            audioManager.abandonAudioFocusRequest(focusRequest)
+            Log.d("VolumeFixer", "Audio focus reset triggered.")
+        } catch (e: Exception) {
+            Log.e("VolumeFixer", "Audio focus reset error: ${e.message}")
+        }
     }
 
     private fun startPeriodicReset() {
         timer = Timer()
         timer?.schedule(object : TimerTask() {
             override fun run() {
-                resetVolumeSettings(applicationContext, "Background Guard")
+                resetVolumeSettings(applicationContext, "CSD Force-Flush Engine (1m)")
             }
-        }, 60000, 1000 * 60 * 15)
+        }, 10000, 1000 * 60 * 1) // Every 60 seconds
     }
 
     override fun onDestroy() {
@@ -108,11 +175,11 @@ class FixerService : Service() {
 
         try {
             val resolver = context.contentResolver
-            
-            // Log the TRIGGER event with a clean timestamp
+
+            // 1. Log the TRIGGER event
             Logger.log(context, ">>> TRIGGER: $source")
-            
-            // Apply Fixes
+
+            // 2. Apply Fixes & CSD Flush
             Settings.Global.putInt(resolver, "audio_safe_volume_state", 2)
             Settings.Secure.putInt(resolver, "unsafe_volume_music_active_ms", 0)
             Settings.Global.putInt(resolver, "safe_audio_volume_enforced", 0)
@@ -121,10 +188,10 @@ class FixerService : Service() {
             Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f)
             Settings.Global.putInt(resolver, "audio_safe_csd_as_a_feature_enabled", 0)
 
-            // Log ACTION taken
+            // 3. Log ACTION taken
             Logger.log(context, "ACTION: Forced safety flags to UNRESTRICTED.")
-            Logger.log(context, "---") // Divider for readability
-            
+            Logger.log(context, "---")
+
             Log.d("VolumeFixer", "Fix applied: $source")
         } catch (e: SecurityException) {
             Logger.log(context, "CRITICAL ERROR: ADB Permission missing!")
@@ -138,8 +205,8 @@ class FixerService : Service() {
 
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("VolumeFixer Active")
-            .setContentText("Watching system for restrictions...")
-            .setSmallIcon(android.R.drawable.ic_lock_silent_mode)
+            .setContentText("Volume Guard & CSD Force-Flush Active")
+            .setSmallIcon(R.drawable.ic_lock_silent_mode)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
     }
