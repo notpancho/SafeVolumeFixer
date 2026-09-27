@@ -14,6 +14,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.database.ContentObserver
+import android.hardware.usb.UsbManager
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -52,6 +53,12 @@ class FixerService : Service() {
                     if (intent.getIntExtra("state", -1) == 1) {
                         resetVolumeSettings(context, "Wired Plug")
                     }
+                }
+                UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
+                    resetVolumeSettings(context, "USB DAC/Headphone Attached")
+                }
+                AudioManager.ACTION_AUDIO_BECOMING_NOISY -> {
+                    resetVolumeSettings(context, "Audio Noisy Event")
                 }
                 BluetoothDevice.ACTION_ACL_CONNECTED -> {
                     resetVolumeSettings(context, "Bluetooth Link")
@@ -102,6 +109,9 @@ class FixerService : Service() {
 
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_HEADSET_PLUG)
+            addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
+            @Suppress("DEPRECATION")
+            addAction(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
             addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_USER_PRESENT)
             addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
