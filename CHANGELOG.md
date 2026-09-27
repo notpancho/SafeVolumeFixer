@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.1] - 2026-08-30
+### Added
+- **Service Auto-Restart (`START_STICKY` & `onTaskRemoved`)**: Guarantees the service restarts automatically if terminated by the OS memory manager or if the user swipes the app away from Recent Apps.
+- **Bluetooth Playback & Ringer Observers**: Added listeners for `BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED` and `AudioManager.RINGER_MODE_CHANGED_ACTION`.
+- **System Settings Observers**: Added real-time watchers for `volume_music_bt_a2dp` and `volume_music_headset` system keys.
+
 ## [1.8.0] - 2026-08-30
 ### Added
 - **Media Volume Guard (`VOLUME_CHANGED_ACTION`)**: Automatically detects when Android or Bluetooth audio stack drops the media volume index without user button presses, and instantly restores it back to previous levels.

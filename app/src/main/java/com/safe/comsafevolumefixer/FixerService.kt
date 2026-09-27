@@ -56,8 +56,16 @@ class FixerService : Service() {
                 }
                 BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED -> {
                     if (intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_CONNECTED) {
-                        resetVolumeSettings(context, "Bluetooth Audio")
+                        resetVolumeSettings(context, "Bluetooth Audio Connected")
                     }
+                }
+                BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED -> {
+                    if (intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothA2dp.STATE_PLAYING) {
+                        resetVolumeSettings(context, "Bluetooth Playback Unpaused")
+                    }
+                }
+                AudioManager.RINGER_MODE_CHANGED_ACTION -> {
+                    resetVolumeSettings(context, "Ringer Mode Change")
                 }
                 "android.media.VOLUME_CHANGED_ACTION" -> {
                     handleVolumeChange(context, intent)
@@ -73,23 +81,38 @@ class FixerService : Service() {
             addAction(Intent.ACTION_HEADSET_PLUG)
             addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
             addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED)
+            addAction(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED)
+            addAction(AudioManager.RINGER_MODE_CHANGED_ACTION)
             @Suppress("DEPRECATION")
             addAction("android.media.VOLUME_CHANGED_ACTION")
         }
         registerReceiver(receiver, filter)
 
         val resolver = contentResolver
-        val keys = listOf(
+        val globalKeys = listOf(
             "audio_safe_volume_state",
             "audio_safe_csd_current_value",
             "audio_safe_csd_next_warning",
             "safe_audio_volume_enforced"
         )
-        keys.forEach { key ->
+        globalKeys.forEach { key ->
             try {
                 resolver.registerContentObserver(Settings.Global.getUriFor(key), false, settingsObserver)
             } catch (e: Exception) {
-                Log.e("VolumeFixer", "Could not observe $key")
+                Log.e("VolumeFixer", "Could not observe Global $key")
+            }
+        }
+
+        val systemKeys = listOf(
+            "volume_music_bt_a2dp",
+            "volume_music_headset",
+            "volume_music"
+        )
+        systemKeys.forEach { key ->
+            try {
+                resolver.registerContentObserver(Settings.System.getUriFor(key), false, settingsObserver)
+            } catch (e: Exception) {
+                Log.e("VolumeFixer", "Could not observe System $key")
             }
         }
 
@@ -97,6 +120,19 @@ class FixerService : Service() {
         startPeriodicReset()
         startForeground(NOTIFICATION_ID, createNotification())
         resetVolumeSettings(this, "Service Start")
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Guarantee Service Auto-Restart if terminated by system
+        return START_STICKY
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        // Auto-restart service if user swipes app away from Recent Apps
+        val restartServiceIntent = Intent(applicationContext, FixerService::class.java)
+        restartServiceIntent.setPackage(packageName)
+        startForegroundService(restartServiceIntent)
     }
 
     private fun handleVolumeChange(context: Context, intent: Intent) {
