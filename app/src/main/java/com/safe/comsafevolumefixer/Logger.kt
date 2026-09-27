@@ -14,7 +14,7 @@ object Logger {
         val logs = prefs.getStringSet(KEY_LOGS, LinkedHashSet())?.toMutableList() ?: mutableListOf()
         
         val timestamp = SimpleDateFormat("yyyy-MM-dd | HH:mm:ss", Locale.getDefault()).format(Date())
-        val entry = if (message == "---") "-----------------------------------" else "$timestamp | $message"
+        val entry = if (message == "---") "$timestamp | -----------------------------------" else "$timestamp | $message"
         
         logs.add(0, entry)
         

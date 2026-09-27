@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.2] - 2026-08-30
+### Fixed
+- **Direct Boot Mode Fix**: Added `android:directBootAware="true"` to `FixerService` so it can launch before first device unlock after reboot.
+- **Legacy Bluetooth Permissions**: Added `<uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />` to fix Bluetooth connection detection on Android 10 and 11.
+- **Android 13+ Receiver & Notification Compatibility**: Added `POST_NOTIFICATIONS` permission and `RECEIVER_EXPORTED` flags for dynamic broadcast receivers.
+- **Log Ordering Fix**: Updated divider line timestamps in `Logger` to preserve exact chronological order when sorting logs.
+
 ## [1.8.1] - 2026-08-30
 ### Added
 - **Service Auto-Restart (`START_STICKY` & `onTaskRemoved`)**: Guarantees the service restarts automatically if terminated by the OS memory manager or if the user swipes the app away from Recent Apps.
