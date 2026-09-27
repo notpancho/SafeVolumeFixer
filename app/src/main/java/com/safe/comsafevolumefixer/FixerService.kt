@@ -65,6 +65,9 @@ class FixerService : Service() {
                         resetVolumeSettings(context, "Bluetooth Playback Unpaused")
                     }
                 }
+                Intent.ACTION_USER_PRESENT -> {
+                    resetVolumeSettings(context, "Screen Unlocked")
+                }
                 AudioManager.RINGER_MODE_CHANGED_ACTION -> {
                     resetVolumeSettings(context, "Ringer Mode Change")
                 }
@@ -80,6 +83,7 @@ class FixerService : Service() {
 
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_HEADSET_PLUG)
+            addAction(Intent.ACTION_USER_PRESENT)
             addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
             addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED)
             addAction(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED)
@@ -116,6 +120,8 @@ class FixerService : Service() {
         val systemKeys = listOf(
             "volume_music_bt_a2dp",
             "volume_music_headset",
+            "volume_music_usb_headset",
+            "volume_music_ble_headset",
             "volume_music",
             "volume_limiter_enabled",
             "safe_media_volume_enabled"

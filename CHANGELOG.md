@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.3] - 2026-08-30
+### Added
+- **AOSP AudioService Deep-Audit Fixes**:
+  - Added `Intent.ACTION_USER_PRESENT` (Screen Unlock) trigger so every phone unlock forces a fresh volume safety reset.
+  - Added system observers for `volume_music_usb_headset` (USB-C DACs) and `volume_music_ble_headset` (Bluetooth LE Audio/Auracast).
+
 ## [1.8.2] - 2026-08-30
 ### Fixed
 - **Direct Boot Mode Fix**: Added `android:directBootAware="true"` to `FixerService` so it can launch before first device unlock after reboot.
