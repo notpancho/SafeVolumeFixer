@@ -103,7 +103,10 @@ class FixerService : Service() {
         )
         globalKeys.forEach { key ->
             try {
-                resolver.registerContentObserver(Settings.Global.getUriFor(key), false, settingsObserver)
+                val uri = Settings.Global.getUriFor(key)
+                if (uri != null) {
+                    resolver.registerContentObserver(uri, false, settingsObserver)
+                }
             } catch (e: Exception) {
                 Log.e("VolumeFixer", "Could not observe Global $key")
             }
@@ -116,7 +119,10 @@ class FixerService : Service() {
         )
         systemKeys.forEach { key ->
             try {
-                resolver.registerContentObserver(Settings.System.getUriFor(key), false, settingsObserver)
+                val uri = Settings.System.getUriFor(key)
+                if (uri != null) {
+                    resolver.registerContentObserver(uri, false, settingsObserver)
+                }
             } catch (e: Exception) {
                 Log.e("VolumeFixer", "Could not observe System $key")
             }

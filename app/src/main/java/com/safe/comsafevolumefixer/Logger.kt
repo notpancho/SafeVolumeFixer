@@ -11,7 +11,8 @@ object Logger {
 
     fun log(context: Context, message: String) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val logs = prefs.getStringSet(KEY_LOGS, LinkedHashSet())?.toMutableList() ?: mutableListOf()
+        val existingSet = prefs.getStringSet(KEY_LOGS, null)
+        val logs = existingSet?.toMutableList() ?: mutableListOf()
         
         val timestamp = SimpleDateFormat("yyyy-MM-dd | HH:mm:ss", Locale.getDefault()).format(Date())
         val entry = if (message == "---") "$timestamp | -----------------------------------" else "$timestamp | $message"
@@ -24,10 +25,8 @@ object Logger {
 
     fun getLogs(context: Context): List<String> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        // Since we add to index 0, the newest are already first if we just use the list.
-        // But SharedPreferences.getStringSet doesn't guarantee order. 
-        // We'll sort by the timestamp string we added.
-        return prefs.getStringSet(KEY_LOGS, LinkedHashSet())?.toList()?.sortedDescending() ?: emptyList()
+        val existingSet = prefs.getStringSet(KEY_LOGS, null)
+        return existingSet?.toList()?.sortedDescending() ?: emptyList()
     }
 
     fun clearLogs(context: Context) {
