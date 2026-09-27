@@ -7,6 +7,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.bluetooth.BluetoothA2dp
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothHeadset
 import android.bluetooth.BluetoothProfile
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -65,6 +66,24 @@ class FixerService : Service() {
                         resetVolumeSettings(context, "Bluetooth Playback Unpaused")
                     }
                 }
+                BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED -> {
+                    if (intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_CONNECTED) {
+                        resetVolumeSettings(context, "Bluetooth Headset Connected")
+                    }
+                }
+                BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED -> {
+                    if (intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothHeadset.STATE_AUDIO_CONNECTED) {
+                        resetVolumeSettings(context, "Bluetooth Headset Audio Active")
+                    }
+                }
+                "android.bluetooth.action.LE_AUDIO_CONNECTION_STATE_CHANGED" -> {
+                    if (intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_CONNECTED) {
+                        resetVolumeSettings(context, "Bluetooth LE Audio Connected")
+                    }
+                }
+                Intent.ACTION_SCREEN_ON -> {
+                    resetVolumeSettings(context, "Screen Turned On")
+                }
                 Intent.ACTION_USER_PRESENT -> {
                     resetVolumeSettings(context, "Screen Unlocked")
                 }
@@ -83,10 +102,15 @@ class FixerService : Service() {
 
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_HEADSET_PLUG)
+            addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_USER_PRESENT)
             addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
             addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED)
             addAction(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED)
+            addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED)
+            addAction(BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED)
+            @Suppress("DEPRECATION")
+            addAction("android.bluetooth.action.LE_AUDIO_CONNECTION_STATE_CHANGED")
             addAction(AudioManager.RINGER_MODE_CHANGED_ACTION)
             @Suppress("DEPRECATION")
             addAction("android.media.VOLUME_CHANGED_ACTION")
