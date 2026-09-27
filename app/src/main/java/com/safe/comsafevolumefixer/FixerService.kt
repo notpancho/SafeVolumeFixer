@@ -99,7 +99,8 @@ class FixerService : Service() {
             "audio_safe_volume_state",
             "audio_safe_csd_current_value",
             "audio_safe_csd_next_warning",
-            "safe_audio_volume_enforced"
+            "safe_audio_volume_enforced",
+            "safe_media_volume_enabled"
         )
         globalKeys.forEach { key ->
             try {
@@ -115,7 +116,9 @@ class FixerService : Service() {
         val systemKeys = listOf(
             "volume_music_bt_a2dp",
             "volume_music_headset",
-            "volume_music"
+            "volume_music",
+            "volume_limiter_enabled",
+            "safe_media_volume_enabled"
         )
         systemKeys.forEach { key ->
             try {
@@ -162,7 +165,7 @@ class FixerService : Service() {
             }
 
             // If volume dropped without user pressing buttons (System Attenuation / Safe Volume Drop)
-            if (newVolume < prevVolume && (System.currentTimeMillis() - lastUserVolumeChangeTimestamp > 1500)) {
+            if (newVolume < prevVolume && prevVolume > 0 && (System.currentTimeMillis() - lastUserVolumeChangeTimestamp > 1500)) {
                 Logger.log(context, ">>> DROP DETECTED: Music Volume $prevVolume -> $newVolume")
                 resetVolumeSettings(context, "Auto Volume Drop Guard")
                 resetAudioFocus(context)
@@ -226,14 +229,19 @@ class FixerService : Service() {
             // 1. Log the TRIGGER event
             Logger.log(context, ">>> TRIGGER: $source")
 
-            // 2. Apply Fixes & CSD Flush
-            Settings.Global.putInt(resolver, "audio_safe_volume_state", 2)
-            Settings.Secure.putInt(resolver, "unsafe_volume_music_active_ms", 0)
-            Settings.Global.putInt(resolver, "safe_audio_volume_enforced", 0)
-            Settings.Global.putFloat(resolver, "audio_safe_csd_current_value", 0.0f)
-            Settings.Global.putString(resolver, "audio_safe_csd_dose_records", "[]")
-            Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f)
-            Settings.Global.putInt(resolver, "audio_safe_csd_as_a_feature_enabled", 0)
+            // 2. Apply Fixes & CSD Flush safely per key
+            try { Settings.Global.putInt(resolver, "audio_safe_volume_state", 2) } catch (_: Exception) {}
+            try { Settings.Secure.putInt(resolver, "audio_safe_volume_state", 2) } catch (_: Exception) {}
+            try { Settings.Secure.putInt(resolver, "unsafe_volume_music_active_ms", 0) } catch (_: Exception) {}
+            try { Settings.Global.putInt(resolver, "safe_audio_volume_enforced", 0) } catch (_: Exception) {}
+            try { Settings.Global.putInt(resolver, "safe_media_volume_enabled", 0) } catch (_: Exception) {}
+            try { Settings.System.putInt(resolver, "safe_media_volume_enabled", 0) } catch (_: Exception) {}
+            try { Settings.System.putInt(resolver, "volume_limiter_enabled", 0) } catch (_: Exception) {}
+            
+            try { Settings.Global.putFloat(resolver, "audio_safe_csd_current_value", 0.0f) } catch (_: Exception) {}
+            try { Settings.Global.putString(resolver, "audio_safe_csd_dose_records", "[]") } catch (_: Exception) {}
+            try { Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f) } catch (_: Exception) {}
+            try { Settings.Global.putInt(resolver, "audio_safe_csd_as_a_feature_enabled", 0) } catch (_: Exception) {}
 
             // 3. Log ACTION taken
             Logger.log(context, "ACTION: Forced safety flags to UNRESTRICTED.")
