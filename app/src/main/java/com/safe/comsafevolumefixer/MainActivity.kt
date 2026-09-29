@@ -45,7 +45,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.safe.comsafevolumefixer.ui.theme.ComSafeVolumeFixerTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -95,32 +98,34 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         fun applyFix(context: Context, source: String) {
-            try {
-                val resolver = context.contentResolver
-                
-                // 1. Log the TRIGGER
-                Logger.log(context, ">>> TRIGGER: $source")
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val resolver = context.contentResolver
+                    
+                    // 1. Log the TRIGGER
+                    Logger.log(context, ">>> TRIGGER: $source")
 
-                // 2. Apply all fixes safely per key
-                try { Settings.Global.putInt(resolver, "audio_safe_volume_state", 2) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                try { Settings.Secure.putInt(resolver, "audio_safe_volume_state", 2) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                try { Settings.Secure.putInt(resolver, "unsafe_volume_music_active_ms", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                try { Settings.Global.putInt(resolver, "safe_audio_volume_enforced", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                try { Settings.Global.putInt(resolver, "safe_media_volume_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                try { Settings.System.putInt(resolver, "safe_media_volume_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                try { Settings.System.putInt(resolver, "volume_limiter_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                
-                try { Settings.Global.putFloat(resolver, "audio_safe_csd_current_value", 0.0f) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                try { Settings.Global.putString(resolver, "audio_safe_csd_dose_records", "[]") } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                try { Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                try { Settings.Global.putInt(resolver, "audio_safe_csd_as_a_feature_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                
-                // 3. Log ACTION and divider
-                Logger.log(context, "ACTION: Forced safety flags to UNRESTRICTED.")
-                Logger.log(context, "---")
-                
-            } catch (e: SecurityException) {
-                Logger.log(context, "CRITICAL ERROR: ADB Permission missing!")
+                    // 2. Apply all fixes safely per key
+                    try { Settings.Global.putInt(resolver, "audio_safe_volume_state", 2) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                    try { Settings.Secure.putInt(resolver, "audio_safe_volume_state", 2) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                    try { Settings.Secure.putInt(resolver, "unsafe_volume_music_active_ms", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                    try { Settings.Global.putInt(resolver, "safe_audio_volume_enforced", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                    try { Settings.Global.putInt(resolver, "safe_media_volume_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                    try { Settings.System.putInt(resolver, "safe_media_volume_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                    try { Settings.System.putInt(resolver, "volume_limiter_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                    
+                    try { Settings.Global.putFloat(resolver, "audio_safe_csd_current_value", 0.0f) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                    try { Settings.Global.putString(resolver, "audio_safe_csd_dose_records", "[]") } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                    try { Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                    try { Settings.Global.putInt(resolver, "audio_safe_csd_as_a_feature_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                    
+                    // 3. Log ACTION and divider
+                    Logger.log(context, "ACTION: Forced safety flags to UNRESTRICTED.")
+                    Logger.log(context, "---")
+                    
+                } catch (e: SecurityException) {
+                    Logger.log(context, "CRITICAL ERROR: ADB Permission missing!")
+                }
             }
         }
     }

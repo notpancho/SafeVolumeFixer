@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.7] - 2026-09-28
+### Fixed
+- **Main Thread UI Jank & ANR Fix**: `Settings.Global.putInt` calls are synchronous Inter-Process Communication (IPC) operations. When processing an intent storm (e.g. Bluetooth connection generating 3 events simultaneously), the app was doing 33 synchronous DB writes on the main UI thread, causing potential Application Not Responding (ANR) crashes. Offloaded all `Settings` writes to `Dispatchers.IO` background coroutines.
+- **Intent Debouncer**: Added a 500ms debounce directly to the `resetVolumeSettings` logic to further mitigate intent storms.
+
 ## [1.8.6] - 2026-09-28
 ### Fixed
 - **Permission Error Logging Fix**: Fixed a silent error suppression issue where specific OEM `IllegalArgumentException` handling was unintentionally swallowing global `SecurityException`s. The app will now accurately log and display a "CRITICAL ERROR: ADB Permission missing!" message if system permissions are ever revoked by the OS.
