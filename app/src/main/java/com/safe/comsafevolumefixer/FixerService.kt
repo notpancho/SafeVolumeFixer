@@ -197,15 +197,18 @@ class FixerService : Service() {
             val prevVolume = intent.getIntExtra("android.media.EXTRA_PREV_VOLUME_STREAM_VALUE", -1)
             val flags = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_FLAGS", 0)
 
-            val isUserButtonPress = (flags and AudioManager.FLAG_SHOW_UI) != 0
+            // Flags associated with user interaction (UI, Sound, Vibrate, Key)
+            val isUserInteraction = (flags and (AudioManager.FLAG_SHOW_UI or AudioManager.FLAG_PLAY_SOUND or AudioManager.FLAG_VIBRATE or 4096)) != 0
+            val dropAmount = prevVolume - newVolume
 
-            if (isUserButtonPress) {
+            // Normal user volume adjustment (single step down or explicit user flags)
+            if (isUserInteraction || dropAmount <= 1) {
                 lastUserVolumeChangeTimestamp = System.currentTimeMillis()
                 return
             }
 
-            // If volume dropped without user pressing buttons (System Attenuation / Safe Volume Drop)
-            if (newVolume < prevVolume && prevVolume > 0 && (System.currentTimeMillis() - lastUserVolumeChangeTimestamp > 1500)) {
+            // Sudden multi-step system drop (e.g. CSD / Safe Volume forced drop of 2+ steps)
+            if (prevVolume > 0 && (System.currentTimeMillis() - lastUserVolumeChangeTimestamp > 1500)) {
                 Logger.log(context, ">>> DROP DETECTED: Music Volume $prevVolume -> $newVolume")
                 resetVolumeSettings(context, "Auto Volume Drop Guard")
                 resetAudioFocus(context)

@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.4] - 2026-08-30
+### Fixed
+- **Hardware Volume Down Button Fix**: Fixed an issue where single-step hardware volume button presses were incorrectly flagged as system volume drops, causing the volume to jump back up when pressing volume down. Single-step adjustments and explicit user flags are now properly recognized so users can lower volume freely.
+
 ## [1.8.3] - 2026-08-30
 ### Added
 - **AOSP AudioService Deep-Audit Fixes**:
