@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.6] - 2026-09-28
+### Fixed
+- **Permission Error Logging Fix**: Fixed a silent error suppression issue where specific OEM `IllegalArgumentException` handling was unintentionally swallowing global `SecurityException`s. The app will now accurately log and display a "CRITICAL ERROR: ADB Permission missing!" message if system permissions are ever revoked by the OS.
+
 ## [1.8.5] - 2026-09-28
 ### Fixed
 - **Volume UP System Drop Bug**: Fixed a critical edge-case where turning the volume UP would trigger a user interaction cooldown, subsequently ignoring the immediate system-enforced volume drop. The app now accurately distinguishes between "Volume Up" and "Volume Down" vectors, ensuring the CSD auto-restore catches drops the very second after you max out the volume.

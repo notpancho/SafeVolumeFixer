@@ -17,18 +17,18 @@ class BootReceiver : BroadcastReceiver() {
                 Logger.log(context, ">>> TRIGGER: Boot ($action)")
 
                 // 2. Apply fixes safely per key
-                try { Settings.Global.putInt(resolver, "audio_safe_volume_state", 2) } catch (_: Exception) {}
-                try { Settings.Secure.putInt(resolver, "audio_safe_volume_state", 2) } catch (_: Exception) {}
-                try { Settings.Secure.putInt(resolver, "unsafe_volume_music_active_ms", 0) } catch (_: Exception) {}
-                try { Settings.Global.putInt(resolver, "safe_audio_volume_enforced", 0) } catch (_: Exception) {}
-                try { Settings.Global.putInt(resolver, "safe_media_volume_enabled", 0) } catch (_: Exception) {}
-                try { Settings.System.putInt(resolver, "safe_media_volume_enabled", 0) } catch (_: Exception) {}
-                try { Settings.System.putInt(resolver, "volume_limiter_enabled", 0) } catch (_: Exception) {}
+                try { Settings.Global.putInt(resolver, "audio_safe_volume_state", 2) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                try { Settings.Secure.putInt(resolver, "audio_safe_volume_state", 2) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                try { Settings.Secure.putInt(resolver, "unsafe_volume_music_active_ms", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                try { Settings.Global.putInt(resolver, "safe_audio_volume_enforced", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                try { Settings.Global.putInt(resolver, "safe_media_volume_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                try { Settings.System.putInt(resolver, "safe_media_volume_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                try { Settings.System.putInt(resolver, "volume_limiter_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
 
-                try { Settings.Global.putFloat(resolver, "audio_safe_csd_current_value", 0.0f) } catch (_: Exception) {}
-                try { Settings.Global.putString(resolver, "audio_safe_csd_dose_records", "[]") } catch (_: Exception) {}
-                try { Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f) } catch (_: Exception) {}
-                try { Settings.Global.putInt(resolver, "audio_safe_csd_as_a_feature_enabled", 0) } catch (_: Exception) {}
+                try { Settings.Global.putFloat(resolver, "audio_safe_csd_current_value", 0.0f) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                try { Settings.Global.putString(resolver, "audio_safe_csd_dose_records", "[]") } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                try { Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                try { Settings.Global.putInt(resolver, "audio_safe_csd_as_a_feature_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
 
                 // 3. Log action and divider
                 Logger.log(context, "ACTION: Forced safety flags to UNRESTRICTED.")
