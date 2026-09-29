@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.5] - 2026-08-30
+### Fixed
+- **Volume UP System Drop Bug**: Fixed a critical edge-case where turning the volume UP would trigger a user interaction cooldown, subsequently ignoring the immediate system-enforced volume drop. The app now accurately distinguishes between "Volume Up" and "Volume Down" vectors, ensuring the CSD auto-restore catches drops the very second after you max out the volume.
+
 ## [1.8.4] - 2026-08-30
 ### Fixed
 - **Hardware Volume Down Button Fix**: Fixed an issue where single-step hardware volume button presses were incorrectly flagged as system volume drops, causing the volume to jump back up when pressing volume down. Single-step adjustments and explicit user flags are now properly recognized so users can lower volume freely.

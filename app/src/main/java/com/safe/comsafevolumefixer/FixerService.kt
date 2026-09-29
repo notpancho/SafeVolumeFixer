@@ -33,7 +33,6 @@ class FixerService : Service() {
     private var timer: Timer? = null
     private val handler = Handler(Looper.getMainLooper())
     private var lastFixTimestamp = 0L
-    private var lastUserVolumeChangeTimestamp = 0L
 
     private val settingsObserver = object : ContentObserver(handler) {
         override fun onChange(selfChange: Boolean, uri: Uri?) {
@@ -197,18 +196,24 @@ class FixerService : Service() {
             val prevVolume = intent.getIntExtra("android.media.EXTRA_PREV_VOLUME_STREAM_VALUE", -1)
             val flags = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_FLAGS", 0)
 
-            // Flags associated with user interaction (UI, Sound, Vibrate, Key)
-            val isUserInteraction = (flags and (AudioManager.FLAG_SHOW_UI or AudioManager.FLAG_PLAY_SOUND or AudioManager.FLAG_VIBRATE or 4096)) != 0
             val dropAmount = prevVolume - newVolume
 
-            // Normal user volume adjustment (single step down or explicit user flags)
-            if (isUserInteraction || dropAmount <= 1) {
-                lastUserVolumeChangeTimestamp = System.currentTimeMillis()
+            // If the volume went UP or stayed the same, do nothing.
+            if (dropAmount <= 0) {
                 return
             }
 
-            // Sudden multi-step system drop (e.g. CSD / Safe Volume forced drop of 2+ steps)
-            if (prevVolume > 0 && (System.currentTimeMillis() - lastUserVolumeChangeTimestamp > 1500)) {
+            // Flags associated with user interaction (UI, Sound, Vibrate, Key)
+            val isUserInteraction = (flags and (AudioManager.FLAG_SHOW_UI or AudioManager.FLAG_PLAY_SOUND or AudioManager.FLAG_VIBRATE or 4096)) != 0
+
+            // If the user manually turned the volume DOWN (single-step or dragging the UI slider)
+            if (isUserInteraction || dropAmount == 1) {
+                return
+            }
+
+            // If we reach here, it's a sudden multi-step system volume drop (CSD / Safe Volume forced drop)
+            // AND we ensure we don't infinitely loop by checking against the last FIX timestamp.
+            if (prevVolume > 0 && (System.currentTimeMillis() - lastFixTimestamp > 1500)) {
                 Logger.log(context, ">>> DROP DETECTED: Music Volume $prevVolume -> $newVolume")
                 resetVolumeSettings(context, "Auto Volume Drop Guard")
                 resetAudioFocus(context)
