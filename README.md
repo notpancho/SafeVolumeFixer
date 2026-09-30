@@ -49,9 +49,6 @@ adb shell pm grant com.safe.comsafevolumefixer android.permission.WRITE_SECURE_S
 adb shell dumpsys deviceidle whitelist +com.safe.comsafevolumefixer
 ```
 
-## Easter Egg
-Scroll to the bottom of the app dashboard and tap the Version Number 5 times to launch a hidden mini-game: Volume Defense.
-
 ## Safety Disclaimer
 USE AT YOUR OWN RISK. This application completely bypasses the safety mechanisms built into Android to protect your hearing. Prolonged exposure to high volume can cause permanent hearing damage.
 
