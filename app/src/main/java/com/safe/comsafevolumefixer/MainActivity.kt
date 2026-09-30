@@ -17,6 +17,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Help
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
@@ -119,9 +122,8 @@ class MainActivity : ComponentActivity() {
                     try { Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
                     try { Settings.Global.putInt(resolver, "audio_safe_csd_as_a_feature_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
                     
-                    // 3. Log ACTION and divider
+                    // 3. Log ACTION
                     Logger.log(context, "ACTION: Forced safety flags to UNRESTRICTED.")
-                    Logger.log(context, "---")
                     
                 } catch (e: SecurityException) {
                     Logger.log(context, "CRITICAL ERROR: ADB Permission missing!")
@@ -275,23 +277,90 @@ fun LogsScreen(onBack: () -> Unit) {
                 Text(stringResource(R.string.no_logs))
             }
         } else {
-            Column(modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
-                logs.forEach { log ->
-                    if (log.startsWith("---")) {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 2.dp, color = MaterialTheme.colorScheme.outline)
-                    } else {
-                        ListItem(
-                            headlineContent = { 
-                                Text(
-                                    text = log, 
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (log.contains("TRIGGER")) MaterialTheme.colorScheme.primary 
-                                            else if (log.contains("ERROR")) MaterialTheme.colorScheme.error 
-                                            else MaterialTheme.colorScheme.onSurface
-                                ) 
-                            }
-                        )
-                    }
+            LazyColumn(
+                modifier = Modifier.padding(padding).fillMaxSize(),
+                contentPadding = PaddingValues(vertical = 12.dp)
+            ) {
+                items(logs) { entry ->
+                    LogItemCard(entry)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LogItemCard(entry: LogEntry) {
+    val isTrigger = entry.message.startsWith(">>> TRIGGER")
+    val isAction = entry.message.startsWith("ACTION")
+    val isError = entry.message.contains("ERROR")
+    
+    val containerColor = when {
+        isError -> MaterialTheme.colorScheme.errorContainer
+        isTrigger -> MaterialTheme.colorScheme.primaryContainer
+        isAction -> MaterialTheme.colorScheme.secondaryContainer
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    
+    val contentColor = when {
+        isError -> MaterialTheme.colorScheme.onErrorContainer
+        isTrigger -> MaterialTheme.colorScheme.onPrimaryContainer
+        isAction -> MaterialTheme.colorScheme.onSecondaryContainer
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    
+    val icon = when {
+        isError -> Icons.Default.Warning
+        isTrigger -> Icons.Default.Bolt
+        isAction -> Icons.Default.CheckCircle
+        else -> Icons.Default.Info
+    }
+
+    val explanation = when {
+        entry.message.contains("System Watcher") -> "Android attempted to re-enable volume limits. Intercepted and blocked."
+        entry.message.contains("Auto Volume Drop Guard") -> "Android forced a volume drop. Instantly restored to previous level."
+        entry.message.contains("CSD Force-Flush") -> "Wiped Sound Dose memory to prevent background attenuation."
+        entry.message.contains("Boot") -> "Re-applied all safety bypasses after device restart."
+        entry.message.contains("Screen") -> "Refreshed volume bypasses upon device wake/unlock."
+        entry.message.contains("Bluetooth") || entry.message.contains("Wired") || entry.message.contains("USB") || entry.message.contains("Ringer") -> "Re-applied bypasses for new audio state or hardware."
+        else -> null
+    }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
+            Icon(
+                imageVector = icon, 
+                contentDescription = null, 
+                tint = contentColor,
+                modifier = Modifier.size(24.dp).padding(top = 2.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = entry.timestampStr, 
+                    style = MaterialTheme.typography.labelSmall, 
+                    color = contentColor.copy(alpha = 0.7f),
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = entry.message.removePrefix(">>> TRIGGER: ").removePrefix("ACTION: "), 
+                    style = MaterialTheme.typography.bodyMedium, 
+                    color = contentColor,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (explanation != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = explanation,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = contentColor.copy(alpha = 0.8f),
+                        lineHeight = 16.sp
+                    )
                 }
             }
         }

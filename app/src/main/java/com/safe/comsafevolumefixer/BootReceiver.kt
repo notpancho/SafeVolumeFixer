@@ -37,9 +37,8 @@ class BootReceiver : BroadcastReceiver() {
                     try { Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
                     try { Settings.Global.putInt(resolver, "audio_safe_csd_as_a_feature_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
 
-                    // 3. Log action and divider
+                    // 3. Log action
                     Logger.log(context, "ACTION: Forced safety flags to UNRESTRICTED.")
-                    Logger.log(context, "---")
 
                     Log.d("VolumeFixer", "Hardened Boot Fix applied ($action).")
                 } catch (e: SecurityException) {

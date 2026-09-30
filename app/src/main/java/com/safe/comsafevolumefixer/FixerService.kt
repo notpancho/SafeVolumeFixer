@@ -301,7 +301,6 @@ class FixerService : Service() {
 
                 // 3. Log ACTION taken
                 Logger.log(context, "ACTION: Forced safety flags to UNRESTRICTED.")
-                Logger.log(context, "---")
 
                 Log.d("VolumeFixer", "Fix applied: $source")
             } catch (e: SecurityException) {

@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2026-09-28
+### Added
+- **UI/UX Overhaul for Logs**: Rebuilt the History screen from scratch. The raw string list has been upgraded to a sleek, `LazyColumn` timeline of graphical event cards (`LogItemCard`).
+- **Rich Event Explanations**: Events now feature contextual human-readable explanations beneath the technical log outputs (e.g., explaining exactly what an `Auto Volume Drop Guard` interception means).
+- **Structured Data Logging**: Replaced raw string-based log storage with a structured format (`timestampMs|formattedTime|message`) ensuring highly accurate chronological sorting without needing artificial visual dividers.
+
 ## [1.8.7] - 2026-09-28
 ### Fixed
 - **Main Thread UI Jank & ANR Fix**: `Settings.Global.putInt` calls are synchronous Inter-Process Communication (IPC) operations. When processing an intent storm (e.g. Bluetooth connection generating 3 events simultaneously), the app was doing 33 synchronous DB writes on the main UI thread, causing potential Application Not Responding (ANR) crashes. Offloaded all `Settings` writes to `Dispatchers.IO` background coroutines.
