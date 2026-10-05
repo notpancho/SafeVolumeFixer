@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -259,6 +260,20 @@ fun LogsScreen(onBack: () -> Unit) {
                     }
                 },
                 actions = {
+                    IconButton(onClick = {
+                        if (logs.isNotEmpty()) {
+                            val logText = logs.joinToString("\n\n") { "${it.timestampStr}\n${it.message}" }
+                            val sendIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_TEXT, "Safe Volume Fixer Logs:\n\n$logText")
+                                type = "text/plain"
+                            }
+                            val shareIntent = Intent.createChooser(sendIntent, "Export Logs")
+                            context.startActivity(shareIntent)
+                        }
+                    }) {
+                        Icon(Icons.Default.Share, contentDescription = "Export Logs")
+                    }
                     IconButton(onClick = { logs = Logger.getLogs(context) }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }

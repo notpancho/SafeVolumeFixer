@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0] - 2026-09-28
+### Added
+- **Log Export Feature**: Added a "Share" button to the History screen. Users can now export their entire log history as a formatted text document to email, Google Drive, or clipboard via the native Android Share Sheet.
+
 ## [2.0.0] - 2026-09-28
 ### Added
 - **UI/UX Overhaul for Logs**: Rebuilt the History screen from scratch. The raw string list has been upgraded to a sleek, `LazyColumn` timeline of graphical event cards (`LogItemCard`).
