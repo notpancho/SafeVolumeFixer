@@ -15,7 +15,8 @@ If you are looking for a way to disable the Android high volume warning without 
 
 * Auto-Bypass: Instantly suppresses the "High volume can damage your hearing" popup by continuously resetting global restriction flags.
 * Media Volume Guard: Monitors the android.media.VOLUME_CHANGED_ACTION broadcast. Automatically detects system-forced volume drops (e.g., HAL attenuation) without physical button presses and restores the media volume to its previous level.
-* 60-Second CSD Force-Flush: Clears Android 14+ "Calculated Sound Dose" memory and log records every 60 seconds to prevent the background SoundDoseHelper from accumulating exposure time.
+* Adaptive 10s CSD Force-Flush: Detects active audio playback and flushes "Calculated Sound Dose" memory every 10 seconds while playing (and every 5 minutes when idle) to prevent HAL exposure accumulation.
+* Ghost Acknowledgment Engine: Emits system-level warning acknowledgment broadcasts to automatically dismiss SystemUI safe volume warning dialogs.
 * Audio Focus Un-Ducking: Automatically clears stuck audio ducking (where media stays quiet after a notification finishes) by requesting and abandoning a transient audio focus request.
 * Hardware & State Triggers: Actively flushes volume limitations upon device boot, direct boot, screen unlock, wired headphone connection, USB-C DAC hotplugging, Bluetooth ACL links, A2DP playback states, and LE Audio/Auracast connections.
 * Real-Time Monitoring: Uses a ContentObserver to detect if Android attempts to write to volume safety settings and counters it instantly.

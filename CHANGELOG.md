@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.0] - 2026-09-28
+### Added
+- **Adaptive Playback CSD Flushing**: CSD force-flushing now detects active audio playback (`isMusicActive`). While music is playing, the app flushes Sound Dose memory every 10 seconds to eliminate the HAL accumulation window. When audio is idle, it relaxes to a 5-minute interval to conserve battery.
+- **Ghost Acknowledgment Broadcasts**: Automatically emits system-level safe volume warning acknowledgment broadcasts (`VOL_SAFE_WARNING_ACK`) during fix cycles to dismiss SystemUI warning popups.
+
 ## [2.1.1] - 2026-09-28
 ### Changed
 - **Hyper-Aggressive CSD Flush**: Halved the background CSD Force-Flush Engine interval from 60 seconds to 30 seconds. This aggressively prevents the internal Android `SoundDoseHelper` from ever accumulating enough dose memory in the hardware abstraction layer (HAL) to trigger the popup and beep.

@@ -36,6 +36,7 @@ class FixerService : Service() {
     private var timer: Timer? = null
     private val handler = Handler(Looper.getMainLooper())
     private var lastFixTimestamp = 0L
+    private var lastIdleFlushTimestamp = 0L
 
     private val settingsObserver = object : ContentObserver(handler) {
         override fun onChange(selfChange: Boolean, uri: Uri?) {
@@ -252,13 +253,39 @@ class FixerService : Service() {
         }
     }
 
+    private fun sendGhostAcknowledge(context: Context) {
+        try {
+            val actions = listOf(
+                "com.android.server.audio.action.VOL_SAFE_WARNING_ACK",
+                "android.media.action.SAFE_VOLUME_WARNING_ACKNOWLEDGED",
+                "com.android.systemui.volume.SAFE_VOLUME_ACK"
+            )
+            actions.forEach { action ->
+                try {
+                    context.sendBroadcast(Intent(action))
+                } catch (_: Exception) {}
+            }
+        } catch (e: Exception) {
+            Log.e("VolumeFixer", "Ghost acknowledge error: ${e.message}")
+        }
+    }
+
     private fun startPeriodicReset() {
         timer = Timer()
         timer?.schedule(object : TimerTask() {
             override fun run() {
-                resetVolumeSettings(applicationContext, "CSD Force-Flush Engine (30s)")
+                val audioManager = getSystemService(AUDIO_SERVICE) as? AudioManager
+                val isPlaying = audioManager?.isMusicActive == true
+                val now = System.currentTimeMillis()
+
+                if (isPlaying) {
+                    resetVolumeSettings(applicationContext, "CSD Force-Flush Engine (Active 10s)")
+                } else if (now - lastIdleFlushTimestamp >= 300000) { // Every 5 minutes when idle
+                    lastIdleFlushTimestamp = now
+                    resetVolumeSettings(applicationContext, "CSD Force-Flush Engine (Idle 5m)")
+                }
             }
-        }, 10000, 1000 * 30 * 1) // Every 30 seconds
+        }, 5000, 10000) // Ticks every 10 seconds
     }
 
     override fun onDestroy() {
@@ -298,6 +325,9 @@ class FixerService : Service() {
                 try { Settings.Global.putString(resolver, "audio_safe_csd_dose_records", "[]") } catch (e: SecurityException) { throw e } catch (_: Exception) {}
                 try { Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
                 try { Settings.Global.putInt(resolver, "audio_safe_csd_as_a_feature_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+
+                // Ghost Acknowledge to dismiss SystemUI safe volume warning dialogs
+                sendGhostAcknowledge(context)
 
                 // 3. Log ACTION taken
                 Logger.log(context, "ACTION: Forced safety flags to UNRESTRICTED.")
