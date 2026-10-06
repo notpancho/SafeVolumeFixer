@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.1] - 2026-09-28
+### Changed
+- **Hyper-Aggressive CSD Flush**: Halved the background CSD Force-Flush Engine interval from 60 seconds to 30 seconds. This aggressively prevents the internal Android `SoundDoseHelper` from ever accumulating enough dose memory in the hardware abstraction layer (HAL) to trigger the popup and beep.
+
 ## [2.1.0] - 2026-09-28
 ### Added
 - **Log Export Feature**: Added a "Share" button to the History screen. Users can now export their entire log history as a formatted text document to email, Google Drive, or clipboard via the native Android Share Sheet.

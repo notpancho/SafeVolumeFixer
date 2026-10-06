@@ -256,9 +256,9 @@ class FixerService : Service() {
         timer = Timer()
         timer?.schedule(object : TimerTask() {
             override fun run() {
-                resetVolumeSettings(applicationContext, "CSD Force-Flush Engine (1m)")
+                resetVolumeSettings(applicationContext, "CSD Force-Flush Engine (30s)")
             }
-        }, 10000, 1000 * 60 * 1) // Every 60 seconds
+        }, 10000, 1000 * 30 * 1) // Every 30 seconds
     }
 
     override fun onDestroy() {
