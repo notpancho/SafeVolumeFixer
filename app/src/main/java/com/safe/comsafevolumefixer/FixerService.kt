@@ -207,22 +207,22 @@ class FixerService : Service() {
                 return
             }
 
-            // Flags associated with user interaction (UI, Sound, Vibrate, Key)
-            val isUserInteraction = (flags and (AudioManager.FLAG_SHOW_UI or AudioManager.FLAG_PLAY_SOUND or AudioManager.FLAG_VIBRATE or 4096)) != 0
+            // Check if the drop was triggered by a PHYSICAL hardware keypress
+            // FLAG_FROM_KEY = 4096 in Android AudioManager
+            val isPhysicalKeyPressed = (flags and 4096) != 0
 
-            // If the user manually turned the volume DOWN (single-step or dragging the UI slider)
-            if (isUserInteraction || dropAmount == 1) {
+            // If user pressed physical volume keys for a 1-step drop, allow it
+            if (isPhysicalKeyPressed && dropAmount == 1) {
                 return
             }
 
-            // If we reach here, it's a sudden multi-step system volume drop (CSD / Safe Volume forced drop)
-            // AND we ensure we don't infinitely loop by checking against the last FIX timestamp.
-            if (prevVolume > 0 && (System.currentTimeMillis() - lastFixTimestamp > 1500)) {
-                Logger.log(context, ">>> DROP DETECTED: Music Volume $prevVolume -> $newVolume")
+            // If a drop of 2+ steps occurs OR drop without physical keypress, it's a System-Forced Drop!
+            if (prevVolume > 0 && (System.currentTimeMillis() - lastFixTimestamp > 800)) {
+                Logger.log(context, ">>> DROP DETECTED: System Forced Volume Drop $prevVolume -> $newVolume")
                 resetVolumeSettings(context, "Auto Volume Drop Guard")
                 resetAudioFocus(context)
 
-                // Restore previous volume level
+                // Restore previous volume level instantly
                 try {
                     val audioManager = context.getSystemService(AUDIO_SERVICE) as AudioManager
                     audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, prevVolume, 0)

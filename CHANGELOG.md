@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.1] - 2026-09-28
+### Fixed
+- **System-Forced Volume Drop Bypass (`FLAG_FROM_KEY` Refactoring)**: Fixed a major flaw where system-forced volume drops (e.g. CSD / Safe Volume caps) were being incorrectly ignored by the app because Android passes `FLAG_SHOW_UI` in the broadcast when forcing volume down. The volume guard now specifically checks for physical hardware keypresses (`FLAG_FROM_KEY`). Multi-step drops or drops without physical keypresses are now aggressively intercepted and restored to previous levels.
+
 ## [2.2.0] - 2026-09-28
 ### Added
 - **Adaptive Playback CSD Flushing**: CSD force-flushing now detects active audio playback (`isMusicActive`). While music is playing, the app flushes Sound Dose memory every 10 seconds to eliminate the HAL accumulation window. When audio is idle, it relaxes to a 5-minute interval to conserve battery.
