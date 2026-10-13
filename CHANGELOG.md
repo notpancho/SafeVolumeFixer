@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.3.0] - 2026-10-12
+### Added
+- **Long Drive & Android Auto Hardening**:
+  - Added Android Auto / Car Mode listener (`ENTER_CAR_MODE`) to force fresh volume bypasses when connecting to car systems.
+  - Added Doze Mode listener (`ACTION_DEVICE_IDLE_MODE_CHANGED`) to ensure CSD flushing stays active when the phone screen is off on long drives.
+  - Added Bluetooth Device Name extraction in logs (e.g. `>>> TRIGGER: Connected to Car Multimedia`).
+  - Added active media volume level output in action logs (`ACTION: Forced safety flags to UNRESTRICTED (Vol: 21/25)`).
+
 ## [2.2.1] - 2026-10-12
 ### Fixed
 - **System-Forced Volume Drop Bypass (`FLAG_FROM_KEY` Refactoring)**: Fixed a major flaw where system-forced volume drops (e.g. CSD / Safe Volume caps) were being incorrectly ignored by the app because Android passes `FLAG_SHOW_UI` in the broadcast when forcing volume down. The volume guard now specifically checks for physical hardware keypresses (`FLAG_FROM_KEY`). Multi-step drops or drops without physical keypresses are now aggressively intercepted and restored to previous levels.

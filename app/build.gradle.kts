@@ -30,8 +30,8 @@ android {
         applicationId = "com.safe.comsafevolumefixer"
         minSdk = 29
         targetSdk = 37
-        versionCode = 22
-        versionName = "2.2.1"
+        versionCode = 23
+        versionName = "2.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

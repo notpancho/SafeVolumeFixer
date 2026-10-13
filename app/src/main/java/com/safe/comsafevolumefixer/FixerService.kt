@@ -1,6 +1,5 @@
 package com.safe.comsafevolumefixer
 
-import android.R
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -23,6 +22,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -64,16 +64,19 @@ class FixerService : Service() {
                     resetVolumeSettings(context, "Audio Noisy Event")
                 }
                 BluetoothDevice.ACTION_ACL_CONNECTED -> {
-                    resetVolumeSettings(context, "Bluetooth Link")
+                    @Suppress("DEPRECATION")
+                    val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
+                    val devName = try { device?.name ?: "Bluetooth Device" } catch (_: SecurityException) { "Bluetooth Device" }
+                    resetVolumeSettings(context, "Connected to $devName")
                 }
                 BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED -> {
                     if (intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_CONNECTED) {
-                        resetVolumeSettings(context, "Bluetooth Audio Connected")
+                        resetVolumeSettings(context, "Bluetooth A2DP Connected")
                     }
                 }
                 BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED -> {
                     if (intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothA2dp.STATE_PLAYING) {
-                        resetVolumeSettings(context, "Bluetooth Playback Unpaused")
+                        resetVolumeSettings(context, "Bluetooth Playback Active")
                     }
                 }
                 BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED -> {
@@ -90,6 +93,12 @@ class FixerService : Service() {
                     if (intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_CONNECTED) {
                         resetVolumeSettings(context, "Bluetooth LE Audio Connected")
                     }
+                }
+                "android.app.action.ENTER_CAR_MODE" -> {
+                    resetVolumeSettings(context, "Android Auto / Car Mode Active")
+                }
+                PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED -> {
+                    resetVolumeSettings(context, "Doze Mode State Changed")
                 }
                 Intent.ACTION_SCREEN_ON -> {
                     resetVolumeSettings(context, "Screen Turned On")
@@ -124,6 +133,8 @@ class FixerService : Service() {
             addAction(BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED)
             @Suppress("DEPRECATION")
             addAction("android.bluetooth.action.LE_AUDIO_CONNECTION_STATE_CHANGED")
+            addAction("android.app.action.ENTER_CAR_MODE")
+            addAction(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED)
             addAction(AudioManager.RINGER_MODE_CHANGED_ACTION)
             @Suppress("DEPRECATION")
             addAction("android.media.VOLUME_CHANGED_ACTION")
@@ -174,7 +185,7 @@ class FixerService : Service() {
             }
         }
 
-        // CSD 60-second Force-Flush Engine
+        // CSD Adaptive Active / Idle Force-Flush Engine
         startPeriodicReset()
         startForeground(NOTIFICATION_ID, createNotification())
         resetVolumeSettings(this, "Service Start")
@@ -329,8 +340,11 @@ class FixerService : Service() {
                 // Ghost Acknowledge to dismiss SystemUI safe volume warning dialogs
                 sendGhostAcknowledge(context)
 
-                // 3. Log ACTION taken
-                Logger.log(context, "ACTION: Forced safety flags to UNRESTRICTED.")
+                // 3. Log ACTION taken with current volume
+                val audioManager = context.getSystemService(AUDIO_SERVICE) as? AudioManager
+                val currentVol = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: -1
+                val maxVol = audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: -1
+                Logger.log(context, "ACTION: Forced safety flags to UNRESTRICTED (Vol: $currentVol/$maxVol)")
 
                 Log.d("VolumeFixer", "Fix applied: $source")
             } catch (e: SecurityException) {
@@ -347,7 +361,7 @@ class FixerService : Service() {
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("VolumeFixer Active")
             .setContentText("Volume Guard & CSD Force-Flush Active")
-            .setSmallIcon(R.drawable.ic_lock_silent_mode)
+            .setSmallIcon(android.R.drawable.ic_lock_silent_mode)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
     }
