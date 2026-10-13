@@ -4,10 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [2.3.1] - 2026-10-12
 ### Added
-- **Screen-On Driving & Thermal Protection**:
-  - Added Thermal Throttling listener (`PowerManager.ACTION_THERMAL_STATUS_CHANGED`). When a phone mounted on a car dashboard gets hot in the sun with screen on, Android's `AudioService` reduces volume to prevent speaker overheating; the app now intercepts thermal throttling events and restores full volume.
+- **Screen-On Driving & Safety Alignment**:
   - Added Car Charger listeners (`ACTION_POWER_CONNECTED` / `ACTION_POWER_DISCONNECTED`).
   - Added Battery Saver state change listener (`ACTION_POWER_SAVE_MODE_CHANGED`).
+  - **Thermal Safety Compliance**: Explicitly omitted thermal throttling listeners to strictly preserve hardware thermal protection and prevent device overheating during dashboard mounting.
 
 ## [2.3.0] - 2026-10-12
 ### Added

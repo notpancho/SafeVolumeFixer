@@ -337,7 +337,6 @@ fun LogItemCard(entry: LogEntry) {
         entry.message.contains("CSD Force-Flush") -> "Wiped Sound Dose memory to prevent background attenuation."
         entry.message.contains("Boot") -> "Re-applied all safety bypasses after device restart."
         entry.message.contains("Screen") -> "Refreshed volume bypasses upon device wake/unlock."
-        entry.message.contains("Thermal") -> "Dashboard heat/thermal event detected. Countered thermal volume throttling."
         entry.message.contains("Charger") -> "Car charger status changed. Refreshed volume bypasses."
         entry.message.contains("Battery Saver") -> "Battery Saver mode changed. Restored unrestricted volume."
         entry.message.contains("Connected to") || entry.message.contains("Car Mode") -> "Connected to car audio or Bluetooth device. Applied safety bypasses."
