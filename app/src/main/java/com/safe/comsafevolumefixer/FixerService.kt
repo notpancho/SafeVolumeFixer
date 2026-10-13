@@ -100,6 +100,18 @@ class FixerService : Service() {
                 PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED -> {
                     resetVolumeSettings(context, "Doze Mode State Changed")
                 }
+                PowerManager.ACTION_POWER_SAVE_MODE_CHANGED -> {
+                    resetVolumeSettings(context, "Battery Saver Mode Changed")
+                }
+                "android.os.action.THERMAL_STATUS_CHANGED" -> {
+                    resetVolumeSettings(context, "Thermal Throttling Event")
+                }
+                Intent.ACTION_POWER_CONNECTED -> {
+                    resetVolumeSettings(context, "Car Charger Plugged In")
+                }
+                Intent.ACTION_POWER_DISCONNECTED -> {
+                    resetVolumeSettings(context, "Car Charger Unplugged")
+                }
                 Intent.ACTION_SCREEN_ON -> {
                     resetVolumeSettings(context, "Screen Turned On")
                 }
@@ -135,6 +147,11 @@ class FixerService : Service() {
             addAction("android.bluetooth.action.LE_AUDIO_CONNECTION_STATE_CHANGED")
             addAction("android.app.action.ENTER_CAR_MODE")
             addAction(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED)
+            addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED)
+            @Suppress("DEPRECATION")
+            addAction("android.os.action.THERMAL_STATUS_CHANGED")
+            addAction(Intent.ACTION_POWER_CONNECTED)
+            addAction(Intent.ACTION_POWER_DISCONNECTED)
             addAction(AudioManager.RINGER_MODE_CHANGED_ACTION)
             @Suppress("DEPRECATION")
             addAction("android.media.VOLUME_CHANGED_ACTION")
