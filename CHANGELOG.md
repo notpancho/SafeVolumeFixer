@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.0] - 2026-10-12
+### Added
+- **`SAFE_MEDIA_VOLUME_DISABLED` (1) Flag Override**: Switched `audio_safe_volume_state` override from `2` (`INACTIVE`) to `1` (`DISABLED` in AOSP). Setting state `1` forces `AudioService` to completely bypass `onConfigureSafeMediaVolume()`, preventing SystemUI warning dialogs from launching.
+- **Transient System Stream Beep Mute**: `Auto Volume Drop Guard` now briefly mutes `STREAM_SYSTEM` for 300ms during volume drop recovery to silence the warning beep tone.
+
 ## [2.3.1] - 2026-10-12
 ### Added
 - **Screen-On Driving & Safety Alignment**:

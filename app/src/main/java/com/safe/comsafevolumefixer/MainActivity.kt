@@ -109,9 +109,9 @@ class MainActivity : ComponentActivity() {
                     // 1. Log the TRIGGER
                     Logger.log(context, ">>> TRIGGER: $source")
 
-                    // 2. Apply all fixes safely per key
-                    try { Settings.Global.putInt(resolver, "audio_safe_volume_state", 2) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                    try { Settings.Secure.putInt(resolver, "audio_safe_volume_state", 2) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                    // 2. Apply all fixes safely per key (1 = SAFE_MEDIA_VOLUME_DISABLED in AOSP)
+                    try { Settings.Global.putInt(resolver, "audio_safe_volume_state", 1) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                    try { Settings.Secure.putInt(resolver, "audio_safe_volume_state", 1) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
                     try { Settings.Secure.putInt(resolver, "unsafe_volume_music_active_ms", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
                     try { Settings.Global.putInt(resolver, "safe_audio_volume_enforced", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
                     try { Settings.Global.putInt(resolver, "safe_media_volume_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
