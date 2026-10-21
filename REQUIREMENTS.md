@@ -64,3 +64,8 @@ This document specifies the critical architectural rules, constraints, and requi
      - **Feature or Fix Name**: Concise technical description of what was changed and why.
      ```
   3. **Current System Date**: The release entry date in `CHANGELOG.md` MUST explicitly reflect the **exact current system date** (`YYYY-MM-DD`). Reusing past entry dates or placeholder dates is strictly prohibited.
+
+---
+
+## 7. Device Installation Protocol
+- Following any build or code modification, the developer / AI agent **MUST** deploy and install the updated application onto the user's connected physical or virtual Android device (using the IDE `deploy` tool or running `gradle_build("app:installDebug")`) so the updated build is verified and active on the device.

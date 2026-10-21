@@ -12,3 +12,5 @@ When making modifications to **Safe Volume Fixer**, you MUST read and follow the
    - **Changelog Entry**: Add a new `## [X.Y.Z] - YYYY-MM-DD` header at the very top of `CHANGELOG.md`.
    - **Current System Date**: You MUST verify and use the **actual current system date** (`YYYY-MM-DD`) when logging the entry date. Do NOT copy or reuse dates from past entries.
    - **Clear Categories**: Use standard section tags (`### Fixed`, `### Added`, `### Changed`) with clear technical bullet points describing what was changed and why.
+6. **Auto-Install After Build**:
+   - After building or completing code changes, you MUST install/deploy the app onto the connected phone (e.g. using `deploy` or `gradle_build("app:installDebug")`) to ensure the user receives the updated build immediately.
