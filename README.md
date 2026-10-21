@@ -50,6 +50,9 @@ adb shell pm grant com.safe.comsafevolumefixer android.permission.WRITE_SECURE_S
 adb shell dumpsys deviceidle whitelist +com.safe.comsafevolumefixer
 ```
 
+## Developer Guidelines
+For architectural rules, invariant constraints, and guard logic guidelines, refer to [`REQUIREMENTS.md`](REQUIREMENTS.md) and [`AGENTS.md`](AGENTS.md).
+
 ## Safety Disclaimer
 USE AT YOUR OWN RISK. This application completely bypasses the safety mechanisms built into Android to protect your hearing. Prolonged exposure to high volume can cause permanent hearing damage.
 

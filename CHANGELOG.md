@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.1] - 2026-10-20
+### Fixed
+- **User Volume Control & Software Slider Interception Fix**: Fixed a bug where `Auto Volume Drop Guard` misidentified user volume reductions via touchscreen sliders, media app controls, or quick settings UI as system-forced drops and automatically restored the volume back up. The guard now checks for user interaction flags (`FLAG_SHOW_UI` / `FLAG_FROM_KEY`) and respects volume drops below the safe volume threshold (~60%), allowing users to lower or mute media volume freely.
+- **Stream Volume Observer Cleanup**: Removed `volume_music` and stream volume level keys from `ContentObserver` to prevent user volume changes from triggering fix cycles.
+
 ## [2.4.0] - 2026-10-12
 ### Added
 - **`SAFE_MEDIA_VOLUME_DISABLED` (1) Flag Override**: Switched `audio_safe_volume_state` override from `2` (`INACTIVE`) to `1` (`DISABLED` in AOSP). Setting state `1` forces `AudioService` to completely bypass `onConfigureSafeMediaVolume()`, preventing SystemUI warning dialogs from launching.

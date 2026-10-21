@@ -178,11 +178,6 @@ class FixerService : Service() {
         }
 
         val systemKeys = listOf(
-            "volume_music_bt_a2dp",
-            "volume_music_headset",
-            "volume_music_usb_headset",
-            "volume_music_ble_headset",
-            "volume_music",
             "volume_limiter_enabled",
             "safe_media_volume_enabled"
         )
@@ -230,24 +225,41 @@ class FixerService : Service() {
                 return
             }
 
-            // Check if the drop was triggered by a PHYSICAL hardware keypress
-            // FLAG_FROM_KEY = 4096 in Android AudioManager
-            val isPhysicalKeyPressed = (flags and 4096) != 0
+            val audioManager = context.getSystemService(AUDIO_SERVICE) as? AudioManager ?: return
+            val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
 
-            // If user pressed physical volume keys for a 1-step drop, allow it
-            if (isPhysicalKeyPressed && dropAmount == 1) {
+            // Safe volume threshold in Android is typically ~60% of max volume (e.g., 8/15 or 15/25)
+            val safeVolumeThreshold = (maxVolume * 0.60f).toInt()
+
+            // User Intent Detection:
+            // FLAG_SHOW_UI = 1 (on-screen volume slider / panel interaction)
+            // FLAG_FROM_KEY = 4096 (physical volume buttons)
+            val isShowUi = (flags and 1) != 0
+            val isFromKey = (flags and 4096) != 0
+
+            // If the drop was triggered by user interaction (touchscreen slider or hardware keys), allow it!
+            if (isShowUi || isFromKey) {
                 return
             }
 
-            // If a drop of 2+ steps occurs OR drop without physical keypress, it's a System-Forced Drop!
-            if (prevVolume > 0 && (System.currentTimeMillis() - lastFixTimestamp > 800)) {
+            // Safe Volume Level Check:
+            // System-forced safe volume drops ONLY happen when capping volume DOWN TO the safe volume threshold.
+            // A system safe volume drop NEVER lowers volume below the safe volume threshold (and NEVER drops to 0).
+            // If newVolume is below safeVolumeThreshold (or 0), it is 100% a user action!
+            if (newVolume < safeVolumeThreshold) {
+                return
+            }
+
+            // System-Forced Drop Verification:
+            // A system safe volume drop occurs when previous volume was above safe threshold,
+            // and the system forcibly drops it down to the safe volume threshold without user UI/key flags.
+            if (prevVolume > safeVolumeThreshold && (System.currentTimeMillis() - lastFixTimestamp > 800)) {
                 Logger.log(context, ">>> DROP DETECTED: System Forced Volume Drop $prevVolume -> $newVolume")
                 resetVolumeSettings(context, "Auto Volume Drop Guard")
                 resetAudioFocus(context)
 
                 // Restore previous volume level instantly
                 try {
-                    val audioManager = context.getSystemService(AUDIO_SERVICE) as AudioManager
                     audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, prevVolume, 0)
                     Logger.log(context, "ACTION: Restored Music Volume back to $prevVolume")
                 } catch (e: Exception) {
@@ -335,9 +347,9 @@ class FixerService : Service() {
                 // 1. Log the TRIGGER event
                 Logger.log(context, ">>> TRIGGER: $source")
 
-                // 2. Apply Fixes & CSD Flush safely per key
-                try { Settings.Global.putInt(resolver, "audio_safe_volume_state", 2) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                try { Settings.Secure.putInt(resolver, "audio_safe_volume_state", 2) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                // 2. Apply Fixes & CSD Flush safely per key (1 = SAFE_MEDIA_VOLUME_DISABLED in AOSP)
+                try { Settings.Global.putInt(resolver, "audio_safe_volume_state", 1) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
+                try { Settings.Secure.putInt(resolver, "audio_safe_volume_state", 1) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
                 try { Settings.Secure.putInt(resolver, "unsafe_volume_music_active_ms", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
                 try { Settings.Global.putInt(resolver, "safe_audio_volume_enforced", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
                 try { Settings.Global.putInt(resolver, "safe_media_volume_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
