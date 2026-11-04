@@ -14,9 +14,10 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
+        android:name=".VolumeFixerApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="VolumeFixer"
+        android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault">
@@ -33,7 +34,7 @@
         <!-- Listens for the phone starting up -->
         <receiver
             android:name=".BootReceiver"
-            android:exported="true"
+            android:exported="false"
             android:directBootAware="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
@@ -49,6 +50,17 @@
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="System maintenance and volume warning bypass." />
         </service>
+
+        <!-- Shares exported log files (cache/exports) via the share sheet -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.logs"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/log_file_paths" />
+        </provider>
 
     </application>
 </manifest>

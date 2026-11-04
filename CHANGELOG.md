@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.4] - 2026-11-03
+### Added
+- **Large Persistent Diagnostic Log**: The log is no longer limited to 200 events. It is now a pair of rotating plain-text files (~768 KB each, roughly 15,000 events / several days) in device-protected storage, written on a background thread so it works during Direct Boot and never blocks the main thread. Legacy 200-event logs are imported automatically.
+- **Volume Decision Log (`VOL:`)**: Every music volume change is logged with previous/new/max volume, the safe threshold, the raw and decoded flags (e.g. `BLUETOOTH_ABS_VOLUME`, `SHOW_UI`, `FROM_KEY`) and the guard's decision (`ignored: <reason>` or `SYSTEM CAP`).
+- **5-Minute `HEARTBEAT`**: Compact state line with current volume, whether audio is playing and the live values of every managed setting, flagged `OK` or `DRIFT`.
+- **Crash & Process Diagnostics**: New `VolumeFixerApp` records uncaught exceptions with a short stack trace (`CRASH:`), every process start (`PROCESS:` incl. unlock state) and why previous processes died via `ApplicationExitInfo` (`EXIT:` - low-memory kill, force stop, crash, ANR, app update...).
+- **Service Lifecycle Events**: `SERVICE:` entries for created, destroyed, restarted-by-system and task-removed.
+- **Full Log Export**: The share button now exports the whole log (with app/device header) as a file via `FileProvider` instead of a size-limited text extra. The Logs screen loads off the main thread and shows the event count.
+
+## [2.4.3] - 2026-11-03
+### Changed
+- **Single Settings Writer**: The safety-flag write block that was copy-pasted in `MainActivity`, `BootReceiver` and `FixerService` now lives in one `SafetySettings` helper (always on `Dispatchers.IO`, `audio_safe_volume_state = 1`, `SecurityException` -> `CRITICAL ERROR: ADB Permission missing!`).
+- **Service Lifecycle**: `FixerService` uses one lifecycle-bound coroutine scope (cancelled in `onDestroy`) and a coroutine loop instead of a `Timer` thread; `lastFixTimestamp` is now `@Volatile`.
+- **Manifest**: `BootReceiver` is no longer exported (boot broadcasts still arrive from the system); app label now comes from `@string/app_name`.
+- **UI Polish**: Hard-coded strings moved to `strings.xml`, game play field sized from the real screen, `LocalClipboard` / `toUri()` instead of deprecated APIs, stale "every 30 minutes" text corrected.
+
+### Fixed
+- **Service Startup Safety**: `startForeground()` is now the first call in `onCreate()`, `onTaskRemoved()` restart is wrapped in `try/catch`, and `BootReceiver` uses `goAsync()` so the settings write is not killed mid-flight.
+- **Observer Self-Trigger**: The settings `ContentObserver` ignores the echo of the service's own writes (several watched keys are also written by the fix).
+- **Ghost Acknowledge Scope**: Warning-acknowledge broadcasts are now sent only to `com.android.systemui` instead of to every app.
+- **UI State**: App-open fix and log entry only run on a fresh launch (not on every rotation); status cards refresh on resume (e.g. after the battery-optimization dialog); the current screen survives rotation; `POST_NOTIFICATIONS` is requested on Android 13+.
+
+## [2.4.2] - 2026-11-03
+### Fixed
+- **Playback Ducking / Perceived Mute**: Removed `resetAudioFocus()` from the `Auto Volume Drop Guard`. Its `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK` request made Android duck the playing app (e.g. YouTube) to 20% volume (confirmed in `dumpsys audio`: `VolumeShaper mVolumes=[1.0, 0.2]`), which sounded like the app muting the volume.
+- **Guard Reverting User Decreases**: The guard now only restores volume when the drop lands exactly on the safe volume threshold AND removes at least 2 steps in one event (a real system cap). Single-step changes without UI/key flags (Bluetooth earbud buttons / absolute volume sync) are treated as user actions and never reverted.
+- **Boot Crash (Direct Boot)**: `Logger` used credential-protected `SharedPreferences`, which threw `IllegalStateException` on `LOCKED_BOOT_COMPLETED` and crashed `BootReceiver` / `FixerService`. Logs now live in device-protected storage (auto-migrated after unlock), access is `@Synchronized`, and logging failures can no longer crash the app.
+- **Log Eviction**: The 10-second / 5-minute `CSD Force-Flush Engine` ticks are no longer written to the in-app log; they were filling the 200-entry cap within ~11 minutes of playback and evicting real events.
+
 ## [2.4.1] - 2026-10-20
 ### Fixed
 - **User Volume Control & Software Slider Interception Fix**: Fixed a bug where `Auto Volume Drop Guard` misidentified user volume reductions via touchscreen sliders, media app controls, or quick settings UI as system-forced drops and automatically restored the volume back up. The guard now checks for user interaction flags (`FLAG_SHOW_UI` / `FLAG_FROM_KEY`) and respects volume drops below the safe volume threshold (~60%), allowing users to lower or mute media volume freely.

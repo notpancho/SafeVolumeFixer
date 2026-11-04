@@ -1,18 +1,20 @@
 package com.safe.comsafevolumefixer
 
+import android.Manifest
 import android.app.ActivityManager
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -20,7 +22,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -36,23 +37,26 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import com.safe.comsafevolumefixer.ui.theme.ComSafeVolumeFixerTheme
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -61,13 +65,26 @@ enum class Screen {
 }
 
 class MainActivity : ComponentActivity() {
+
+    // Bumped on every onResume so the status screen re-reads permission / service / battery state
+    // (e.g. after returning from the battery optimization dialog).
+    private var resumeTick by mutableIntStateOf(0)
+
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* service runs either way */ }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        applyFix(this, "Manual/App Open")
+
+        // Only on a fresh launch - not on every rotation / theme change (which would spam the log).
+        if (savedInstanceState == null) {
+            applyFix(this, "Manual/App Open")
+            requestNotificationPermissionIfNeeded()
+        }
         startFixerService()
 
         setContent {
-            var currentScreen by remember { mutableStateOf(Screen.Status) }
+            var currentScreen by rememberSaveable { mutableStateOf(Screen.Status) }
 
             ComSafeVolumeFixerTheme {
                 Surface(
@@ -76,6 +93,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     when (currentScreen) {
                         Screen.Status -> StatusScreen(
+                            refreshKey = resumeTick,
                             onNavigateToHowItWorks = { currentScreen = Screen.HowItWorks },
                             onNavigateToLogs = { currentScreen = Screen.Logs },
                             onLaunchGame = { currentScreen = Screen.Game }
@@ -95,60 +113,56 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        resumeTick++
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     private fun startFixerService() {
-        val serviceIntent = Intent(this, FixerService::class.java)
-        startForegroundService(serviceIntent)
+        try {
+            startForegroundService(Intent(this, FixerService::class.java))
+        } catch (e: Exception) {
+            android.util.Log.e("VolumeFixer", "Could not start FixerService: ${e.message}")
+        }
     }
 
     companion object {
         fun applyFix(context: Context, source: String) {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val resolver = context.contentResolver
-                    
-                    // 1. Log the TRIGGER
-                    Logger.log(context, ">>> TRIGGER: $source")
-
-                    // 2. Apply all fixes safely per key (1 = SAFE_MEDIA_VOLUME_DISABLED in AOSP)
-                    try { Settings.Global.putInt(resolver, "audio_safe_volume_state", 1) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                    try { Settings.Secure.putInt(resolver, "audio_safe_volume_state", 1) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                    try { Settings.Secure.putInt(resolver, "unsafe_volume_music_active_ms", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                    try { Settings.Global.putInt(resolver, "safe_audio_volume_enforced", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                    try { Settings.Global.putInt(resolver, "safe_media_volume_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                    try { Settings.System.putInt(resolver, "safe_media_volume_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                    try { Settings.System.putInt(resolver, "volume_limiter_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                    
-                    try { Settings.Global.putFloat(resolver, "audio_safe_csd_current_value", 0.0f) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                    try { Settings.Global.putString(resolver, "audio_safe_csd_dose_records", "[]") } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                    try { Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                    try { Settings.Global.putInt(resolver, "audio_safe_csd_as_a_feature_enabled", 0) } catch (e: SecurityException) { throw e } catch (_: Exception) {}
-                    
-                    // 3. Log ACTION
-                    Logger.log(context, "ACTION: Forced safety flags to UNRESTRICTED.")
-                    
-                } catch (e: SecurityException) {
-                    Logger.log(context, "CRITICAL ERROR: ADB Permission missing!")
-                }
-            }
+            // All Settings writes run on Dispatchers.IO inside SafetySettings.
+            SafetySettings.applyAsync(context, source)
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatusScreen(onNavigateToHowItWorks: () -> Unit, onNavigateToLogs: () -> Unit, onLaunchGame: () -> Unit) {
+fun StatusScreen(
+    refreshKey: Int,
+    onNavigateToHowItWorks: () -> Unit,
+    onNavigateToLogs: () -> Unit,
+    onLaunchGame: () -> Unit
+) {
     val context = LocalContext.current
-    @Suppress("DEPRECATION")
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
     var tapCount by remember { mutableIntStateOf(0) }
-    
-    val isPermissionGranted = remember {
+
+    val isPermissionGranted = remember(refreshKey) {
         context.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED
     }
-    val isServiceRunning = remember { isServiceRunning(context, FixerService::class.java) }
-    val isIgnoringBatteryOptimizations = remember {
+    val isServiceRunning = remember(refreshKey) { isServiceRunning(context, FixerService::class.java) }
+    val isIgnoringBatteryOptimizations = remember(refreshKey) {
         (context.getSystemService(Context.POWER_SERVICE) as PowerManager).isIgnoringBatteryOptimizations(context.packageName)
     }
+    val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
 
     Scaffold(
         topBar = {
@@ -156,10 +170,10 @@ fun StatusScreen(onNavigateToHowItWorks: () -> Unit, onNavigateToLogs: () -> Uni
                 title = { Text(stringResource(R.string.ui_title)) },
                 actions = {
                     IconButton(onClick = onNavigateToLogs) {
-                        Icon(Icons.Default.History, contentDescription = "View Logs")
+                        Icon(Icons.Default.History, contentDescription = stringResource(R.string.cd_view_logs))
                     }
                     IconButton(onClick = onNavigateToHowItWorks) {
-                        Icon(Icons.AutoMirrored.Filled.Help, contentDescription = "How it works")
+                        Icon(Icons.AutoMirrored.Filled.Help, contentDescription = stringResource(R.string.cd_how_it_works))
                     }
                 }
             )
@@ -198,8 +212,8 @@ fun StatusScreen(onNavigateToHowItWorks: () -> Unit, onNavigateToLogs: () -> Uni
                 Button(
                     onClick = {
                         try {
-                            context.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply { data = Uri.parse("package:${context.packageName}") })
-                        } catch (e: Exception) {
+                            context.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply { data = "package:${context.packageName}".toUri() })
+                        } catch (_: Exception) {
                             context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
                         }
                     },
@@ -215,19 +229,23 @@ fun StatusScreen(onNavigateToHowItWorks: () -> Unit, onNavigateToLogs: () -> Uni
             val adbCommand = stringResource(R.string.adb_command)
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(12.dp)) {
-                    @Suppress("DEPRECATION")
                     Text(text = adbCommand, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(8.dp))
-                    @Suppress("DEPRECATION")
-                    Button(onClick = { clipboardManager.setText(AnnotatedString(adbCommand)) }, modifier = Modifier.align(Alignment.End)) { Text("Copy Command") }
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("adb command", adbCommand)))
+                            }
+                        },
+                        modifier = Modifier.align(Alignment.End)
+                    ) { Text(stringResource(R.string.btn_copy_command)) }
                 }
             }
             Text(text = stringResource(R.string.adb_explanation), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            
+
             Spacer(modifier = Modifier.weight(1f))
-            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
             Text(
-                text = stringResource(R.string.version_label, packageInfo.versionName ?: "Unknown", packageInfo.longVersionCode.toInt()),
+                text = stringResource(R.string.version_label, packageInfo.versionName ?: stringResource(R.string.unknown_version), packageInfo.longVersionCode.toInt()),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally).padding(vertical = 8.dp)
@@ -247,41 +265,58 @@ fun StatusScreen(onNavigateToHowItWorks: () -> Unit, onNavigateToLogs: () -> Uni
 @Composable
 fun LogsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
-    var logs by remember { mutableStateOf(Logger.getLogs(context)) }
+    val scope = rememberCoroutineScope()
+    var logs by remember { mutableStateOf<List<LogEntry>>(emptyList()) }
+    var loaded by remember { mutableStateOf(false) }
+    var reloadKey by remember { mutableIntStateOf(0) }
+    val shareChooserTitle = stringResource(R.string.share_logs_chooser)
     BackHandler { onBack() }
-    
+
+    // The log can hold thousands of events - read it off the main thread.
+    LaunchedEffect(reloadKey) {
+        logs = withContext(Dispatchers.IO) { Logger.getLogs(context) }
+        loaded = true
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.logs_title)) },
+                title = { Text(stringResource(R.string.logs_title_count, logs.size)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
                 actions = {
                     IconButton(onClick = {
                         if (logs.isNotEmpty()) {
-                            val logText = logs.joinToString("\n\n") { "${it.timestampStr}\n${it.message}" }
-                            val sendIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_TEXT, "Safe Volume Fixer Logs:\n\n$logText")
-                                type = "text/plain"
+                            // Share the full log as a file (a text extra would exceed the binder size limit).
+                            scope.launch {
+                                val file = withContext(Dispatchers.IO) { Logger.exportToFile(context) }
+                                if (file != null) {
+                                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.logs", file)
+                                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(Intent.createChooser(sendIntent, shareChooserTitle))
+                                }
                             }
-                            val shareIntent = Intent.createChooser(sendIntent, "Export Logs")
-                            context.startActivity(shareIntent)
                         }
                     }) {
-                        Icon(Icons.Default.Share, contentDescription = "Export Logs")
+                        Icon(Icons.Default.Share, contentDescription = stringResource(R.string.cd_export_logs))
                     }
-                    IconButton(onClick = { logs = Logger.getLogs(context) }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                    IconButton(onClick = { reloadKey++ }) {
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.cd_refresh))
                     }
-                    IconButton(onClick = { 
-                        Logger.clearLogs(context)
-                        logs = emptyList()
+                    IconButton(onClick = {
+                        scope.launch {
+                            withContext(Dispatchers.IO) { Logger.clearLogs(context) }
+                            logs = emptyList()
+                        }
                     }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Clear Logs")
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.cd_clear_logs))
                     }
                 }
             )
@@ -289,7 +324,7 @@ fun LogsScreen(onBack: () -> Unit) {
     ) { padding ->
         if (logs.isEmpty()) {
             Box(modifier = Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(stringResource(R.string.no_logs))
+                if (loaded) Text(stringResource(R.string.no_logs))
             }
         } else {
             LazyColumn(
@@ -308,22 +343,22 @@ fun LogsScreen(onBack: () -> Unit) {
 fun LogItemCard(entry: LogEntry) {
     val isTrigger = entry.message.startsWith(">>> TRIGGER")
     val isAction = entry.message.startsWith("ACTION")
-    val isError = entry.message.contains("ERROR")
-    
+    val isError = entry.message.contains("ERROR") || entry.message.startsWith("CRASH")
+
     val containerColor = when {
         isError -> MaterialTheme.colorScheme.errorContainer
         isTrigger -> MaterialTheme.colorScheme.primaryContainer
         isAction -> MaterialTheme.colorScheme.secondaryContainer
         else -> MaterialTheme.colorScheme.surfaceVariant
     }
-    
+
     val contentColor = when {
         isError -> MaterialTheme.colorScheme.onErrorContainer
         isTrigger -> MaterialTheme.colorScheme.onPrimaryContainer
         isAction -> MaterialTheme.colorScheme.onSecondaryContainer
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
-    
+
     val icon = when {
         isError -> Icons.Default.Warning
         isTrigger -> Icons.Default.Bolt
@@ -344,7 +379,7 @@ fun LogItemCard(entry: LogEntry) {
         entry.message.contains("Bluetooth") || entry.message.contains("Wired") || entry.message.contains("USB") || entry.message.contains("Ringer") -> "Re-applied bypasses for new audio state or hardware."
         else -> null
     }
-    
+
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
         colors = CardDefaults.cardColors(containerColor = containerColor),
@@ -352,23 +387,23 @@ fun LogItemCard(entry: LogEntry) {
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
             Icon(
-                imageVector = icon, 
-                contentDescription = null, 
+                imageVector = icon,
+                contentDescription = null,
                 tint = contentColor,
                 modifier = Modifier.size(24.dp).padding(top = 2.dp)
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Text(
-                    text = entry.timestampStr, 
-                    style = MaterialTheme.typography.labelSmall, 
+                    text = entry.timestampStr,
+                    style = MaterialTheme.typography.labelSmall,
                     color = contentColor.copy(alpha = 0.7f),
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = entry.message.removePrefix(">>> TRIGGER: ").removePrefix("ACTION: "), 
-                    style = MaterialTheme.typography.bodyMedium, 
+                    text = entry.message.removePrefix(">>> TRIGGER: ").removePrefix("ACTION: "),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = contentColor,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -390,7 +425,7 @@ fun LogItemCard(entry: LogEntry) {
 @Composable
 fun HowItWorksScreen(onBack: () -> Unit) {
     BackHandler { onBack() }
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.about_title)) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } }) }) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.about_title)) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back)) } }) }) { padding ->
         Column(modifier = Modifier.padding(padding).padding(16.dp).fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(text = stringResource(R.string.about_body), style = MaterialTheme.typography.bodyLarge, lineHeight = 24.sp)
         }
@@ -428,24 +463,26 @@ fun GameScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Volume Defense!") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } }
+                title = { Text(stringResource(R.string.game_title)) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back)) } }
             )
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             if (gameActive) {
                 Column(modifier = Modifier.align(Alignment.TopCenter).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("KEEP THE VOLUME UP!", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.game_keep_volume_up), fontWeight = FontWeight.Bold)
                     LinearProgressIndicator(progress = { highVolumeLevel }, modifier = Modifier.fillMaxWidth().height(20.dp).padding(vertical = 8.dp), color = if (highVolumeLevel > 0.3f) Color.Green else Color.Red)
-                    Text("Score: $score", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.game_score, score), fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 }
 
-                Box(modifier = Modifier.fillMaxSize()) {
+                // Play field sized from the real available space instead of fixed dp values.
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val targetSize = 100.dp
                     Box(
                         modifier = Modifier
-                            .size(100.dp)
-                            .offset(x = (targetX * 260).dp, y = (targetY * 380).dp)
+                            .size(targetSize)
+                            .offset(x = (maxWidth - targetSize) * targetX, y = (maxHeight - targetSize) * targetY)
                             .clickable(
                                 indication = null,
                                 interactionSource = remember { MutableInteractionSource() }
@@ -466,17 +503,17 @@ fun GameScreen(onBack: () -> Unit) {
                 }
             } else {
                 Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("GAME OVER!", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.Red)
-                    Text("The system warning won...", fontSize = 18.sp)
+                    Text(stringResource(R.string.game_over), fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.Red)
+                    Text(stringResource(R.string.game_over_subtitle), fontSize = 18.sp)
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Final Score: $score", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.game_final_score, score), fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(32.dp))
-                    Button(onClick = { 
+                    Button(onClick = {
                         score = 0
                         highVolumeLevel = 0.5f
-                        gameActive = true 
+                        gameActive = true
                     }) {
-                        Text("TRY AGAIN")
+                        Text(stringResource(R.string.game_try_again))
                     }
                 }
             }

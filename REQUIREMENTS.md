@@ -17,7 +17,8 @@ This document specifies the critical architectural rules, constraints, and requi
 3. **Valid System-Forced Drop Conditions**:
    - An event is ONLY treated as a system-forced drop if ALL of the following are true:
      - `prevVolume > safeVolumeThreshold`
-     - `newVolume >= safeVolumeThreshold`
+     - `newVolume == safeVolumeThreshold` (a real system cap lands exactly on the threshold)
+     - `prevVolume - newVolume >= 2` (single-step changes, e.g. Bluetooth earbud buttons, are user actions)
      - `(flags & FLAG_SHOW_UI) == 0` AND `(flags & FLAG_FROM_KEY) == 0`
      - Elapsed time since last fix > 800ms (debounce window).
 
