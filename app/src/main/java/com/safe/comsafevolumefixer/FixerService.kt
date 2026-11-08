@@ -48,6 +48,9 @@ class FixerService : Service() {
     @Volatile private var settingsWriteInProgress = false
     @Volatile private var lastSettingsWriteEnd = 0L
     private var lastIdleFlushTimestamp = 0L // only touched by the periodic job
+    // Volume guard state (main thread only)
+    private var lastMusicVolumeEventAt = 0L
+    private var lastGuardRestoreAt = 0L
 
     private var receiverRegistered = false
     private var observerRegistered = false
@@ -138,6 +141,9 @@ class FixerService : Service() {
                 "android.media.VOLUME_CHANGED_ACTION" -> {
                     handleVolumeChange(context, intent)
                 }
+                Intent.ACTION_SHUTDOWN -> {
+                    handleShutdown(context)
+                }
             }
         }
     }
@@ -161,7 +167,8 @@ class FixerService : Service() {
 
         // CSD Adaptive Active / Idle Force-Flush Engine
         startPeriodicReset()
-        resetVolumeSettings(this, "Service Start")
+        resetVolumeSettings(this, "Service Start", resetDose = true)
+        serviceScope.launch { logGuardCalibration(applicationContext) }
     }
 
     private fun registerReceivers() {
@@ -187,6 +194,7 @@ class FixerService : Service() {
             addAction(AudioManager.RINGER_MODE_CHANGED_ACTION)
             @Suppress("DEPRECATION")
             addAction("android.media.VOLUME_CHANGED_ACTION")
+            addAction(Intent.ACTION_SHUTDOWN)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             @Suppress("UnspecifiedRegisterReceiverFlag")
@@ -200,10 +208,10 @@ class FixerService : Service() {
     private fun registerObservers() {
         val resolver = contentResolver
         // ONLY protected safety keys - never volume index keys (see REQUIREMENTS.md section 2).
+        // The CSD dose keys (audio_safe_csd_current_value / _next_warning) are NOT observed: AudioService
+        // re-persists its in-memory dose on every update, so reacting to them was an endless write war.
         val globalKeys = listOf(
             "audio_safe_volume_state",
-            "audio_safe_csd_current_value",
-            "audio_safe_csd_next_warning",
             "safe_audio_volume_enforced",
             "safe_media_volume_enabled"
         )
@@ -261,47 +269,54 @@ class FixerService : Service() {
 
         val newVolume = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_VALUE", -1)
         val prevVolume = intent.getIntExtra("android.media.EXTRA_PREV_VOLUME_STREAM_VALUE", -1)
+        // NOTE: on Pixel / Android 16+ this extra is never present (always 0), so flags can only ever
+        // *allow* a change, never prove that a drop came from the system.
         val flags = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_FLAGS", 0)
         val dropAmount = prevVolume - newVolume
+
+        val now = System.currentTimeMillis()
+        val sinceLastEvent = now - lastMusicVolumeEventAt
+        lastMusicVolumeEventAt = now
 
         val audioManager = context.getSystemService(AUDIO_SERVICE) as? AudioManager ?: return
         val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
 
-        // Safe volume threshold in Android is typically ~60% of max volume (e.g., 8/15 or 15/25)
-        val safeVolumeThreshold = (maxVolume * 0.60f).toInt()
+        // Real per-device safe index (what Android lowers to), computed from the device's volume curve.
+        val deviceType = SafeVolumeIndex.currentMusicDeviceType(audioManager)
+        val capDevice = SafeVolumeIndex.isSafeVolumeDevice(deviceType)
+        val safeIndex = if (capDevice) SafeVolumeIndex.safeIndexFor(audioManager, deviceType) else null
+        val musicActive = audioManager.isMusicActive
 
-        // User Intent Detection:
-        // FLAG_SHOW_UI = 1 (on-screen volume slider / panel interaction)
-        // FLAG_FROM_KEY = 4096 (physical volume buttons)
-        val isShowUi = (flags and 1) != 0
-        val isFromKey = (flags and 4096) != 0
+        val isShowUi = (flags and 1) != 0 // FLAG_SHOW_UI
+        val isFromKey = (flags and 4096) != 0 // FLAG_FROM_KEY
 
         // Decide (see REQUIREMENTS.md section 1). A null reason means "genuine system-forced cap".
+        // Every condition below can only make the guard step aside; when in doubt the user wins.
         val ignoreReason: String? = when {
-            // If the volume went UP or stayed the same, do nothing.
             dropAmount <= 0 -> "volume up/unchanged"
-            // If the drop was triggered by user interaction (touchscreen slider or hardware keys), allow it!
             isShowUi || isFromKey -> "user action (UI/key flags)"
-            // System-forced drops NEVER lower volume below the safe threshold (nor to 0): that is a user action.
-            newVolume < safeVolumeThreshold -> "below safe threshold"
-            // Tightened (2.4.2): a real system cap lands EXACTLY on the safe threshold and removes several
-            // steps at once. Single-step changes without flags (e.g. Bluetooth earbud buttons / absolute
-            // volume sync) are user actions and must never be reverted.
-            newVolume != safeVolumeThreshold || dropAmount < MIN_SYSTEM_CAP_DROP_STEPS -> "not an exact system cap"
-            prevVolume <= safeVolumeThreshold -> "previous volume not above threshold"
-            System.currentTimeMillis() - lastFixTimestamp <= 800 -> "debounced (fix just ran)"
+            !capDevice -> "output has no safe-volume cap"
+            safeIndex == null -> "safe index unknown for this output"
+            newVolume < safeIndex -> "below safe index (user)"
+            newVolume != safeIndex -> "not on the safe index (user)"
+            dropAmount < MIN_SYSTEM_CAP_DROP_STEPS -> "drop of $dropAmount step(s) too small (user)"
+            !musicActive -> "music not playing"
+            sinceLastEvent < GESTURE_WINDOW_MS -> "part of a volume gesture (prev change ${sinceLastEvent}ms ago)"
+            now - lastGuardRestoreAt < REPEAT_GRACE_MS -> "already restored recently (repeat drop = user, allowed)"
             else -> null
         }
 
         // Every music volume change is logged with the decision, so unexpected behaviour can be analysed later.
         Logger.log(
             context,
-            "VOL: $prevVolume->$newVolume/$maxVolume (safe=$safeVolumeThreshold) flags=0x${flags.toString(16)} " +
+            "VOL: $prevVolume->$newVolume/$maxVolume out=${SafeVolumeIndex.deviceName(deviceType)} " +
+                "safe=${safeIndex ?: "-"} playing=$musicActive dt=${sinceLastEvent}ms flags=0x${flags.toString(16)} " +
                 "[${describeVolumeFlags(flags)}] -> ${ignoreReason?.let { "ignored: $it" } ?: "SYSTEM CAP"}"
         )
         if (ignoreReason != null) return
 
-        Logger.log(context, ">>> DROP DETECTED: System Forced Volume Drop $prevVolume -> $newVolume")
+        Logger.log(context, ">>> DROP DETECTED: System Forced Volume Drop $prevVolume -> $newVolume (safe index)")
+        lastGuardRestoreAt = now
         resetVolumeSettings(context, "Auto Volume Drop Guard")
         // NOTE: Do NOT request audio focus here. A MAY_DUCK focus request makes Android duck the
         // playing app (e.g. YouTube) to 20% volume, which is itself heard as the volume dropping.
@@ -314,6 +329,51 @@ class FixerService : Service() {
             Log.e(TAG, "Failed to restore volume: ${e.message}")
             Logger.log(context, "ERROR: Failed to restore volume: ${e.message}")
         }
+    }
+
+    /**
+     * Device is powering off / rebooting: persist a zero sound dose so AudioService loads 0% at the next boot.
+     * Written twice because AudioService may still persist its own in-memory dose shortly after the broadcast.
+     */
+    private fun handleShutdown(context: Context) {
+        val pending = goAsyncOrNull()
+        Logger.log(context, ">>> TRIGGER: Device shutdown - resetting persisted sound dose")
+        serviceScope.launch {
+            try {
+                settingsWriteInProgress = true
+                SafetySettings.apply(context, resetDose = true)
+                delay(SHUTDOWN_REWRITE_DELAY_MS)
+                SafetySettings.apply(context, resetDose = true)
+            } finally {
+                settingsWriteInProgress = false
+                lastSettingsWriteEnd = System.currentTimeMillis()
+                pending?.finish()
+            }
+        }
+    }
+
+    private fun goAsyncOrNull(): BroadcastReceiver.PendingResult? =
+        try { receiver.goAsync() } catch (_: Exception) { null }
+
+    /** Logs the computed safe index for the current output and common headphone types. */
+    private fun logGuardCalibration(context: Context) {
+        val audioManager = context.getSystemService(AUDIO_SERVICE) as? AudioManager ?: return
+        SafeVolumeIndex.clearCache()
+        val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val current = SafeVolumeIndex.currentMusicDeviceType(audioManager)
+        val types = listOf(
+            android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+            android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+            android.media.AudioDeviceInfo.TYPE_USB_HEADSET
+        )
+        val text = types.joinToString(" ") { t ->
+            "${SafeVolumeIndex.deviceName(t)}=${SafeVolumeIndex.safeIndexFor(audioManager, t) ?: "?"}"
+        }
+        Logger.log(
+            context,
+            "GUARD: safe index per output ($text)/$max, limit=${SafeVolumeIndex.safeDbfs} dBFS, " +
+                "current out=${SafeVolumeIndex.deviceName(current)}"
+        )
     }
 
     private fun describeVolumeFlags(flags: Int): String {
@@ -373,9 +433,15 @@ class FixerService : Service() {
         val vol = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: -1
         val max = audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: -1
         val snapshot = SafetySettings.snapshot(context)
+        val out = audioManager?.let { SafeVolumeIndex.currentMusicDeviceType(it) }
+        val outText = if (audioManager != null && out != null) {
+            "out=${SafeVolumeIndex.deviceName(out)} safe=${SafeVolumeIndex.safeIndexFor(audioManager, out) ?: "-"}"
+        } else {
+            "out=?"
+        }
         Logger.log(
             context,
-            "HEARTBEAT[${if (snapshot.ok) "OK" else "DRIFT"}]: vol=$vol/$max playing=$isPlaying ${snapshot.text}"
+            "HEARTBEAT[${if (snapshot.ok) "OK" else "DRIFT"}]: vol=$vol/$max playing=$isPlaying $outText ${snapshot.text}"
         )
     }
 
@@ -397,7 +463,7 @@ class FixerService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun resetVolumeSettings(context: Context, source: String) {
+    private fun resetVolumeSettings(context: Context, source: String, resetDose: Boolean = false) {
         val now = System.currentTimeMillis()
         if (now - lastFixTimestamp < 500 && source != "Auto Volume Drop Guard") {
             return // Debounce rapid intent storms
@@ -412,7 +478,7 @@ class FixerService : Service() {
 
             settingsWriteInProgress = true
             val applied = try {
-                SafetySettings.apply(context)
+                SafetySettings.apply(context, resetDose)
             } finally {
                 settingsWriteInProgress = false
                 lastSettingsWriteEnd = System.currentTimeMillis()
@@ -447,7 +513,10 @@ class FixerService : Service() {
     companion object {
         private const val TAG = "VolumeFixer"
         private const val NOTIFICATION_ID = 101
-        private const val MIN_SYSTEM_CAP_DROP_STEPS = 2
+        private const val MIN_SYSTEM_CAP_DROP_STEPS = 3
+        private const val GESTURE_WINDOW_MS = 1_500L
+        private const val REPEAT_GRACE_MS = 60_000L
+        private const val SHUTDOWN_REWRITE_DELAY_MS = 1_500L
         private const val SELF_WRITE_GRACE_MS = 1000L
         private const val IDLE_FLUSH_INTERVAL_MS = 300_000L
         private const val HEARTBEAT_INTERVAL_MS = 300_000L

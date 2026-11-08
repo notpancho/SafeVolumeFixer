@@ -8,27 +8,30 @@ This document specifies the critical architectural rules, constraints, and requi
 > **NON-NEGOTIABLE RULE**: The app MUST NEVER block, restore, or interfere with user-initiated volume decreases. Users must always be able to lower or mute media volume to ANY level (including index 0).
 
 ### Rules for `handleVolumeChange`:
-1. **User Interaction Flags**:
-   - If the volume drop broadcast contains `FLAG_SHOW_UI` (`1`) (user interacting with touchscreen slider / volume panel) OR `FLAG_FROM_KEY` (`4096`) (physical volume buttons), the drop **MUST BE ALLOWED TO PASS IMMEDIATELY**.
-2. **Safe Volume Threshold Boundary**:
-   - Android system safe volume caps **ONLY** lower volume down to the safe volume threshold (typically ~55%–60% of max stream volume, e.g., index 8/15 or 15/25).
-   - Android system safe volume caps **NEVER** lower volume below the safe volume threshold, and **NEVER** lower volume to index 0, 1, 2, 3, etc.
-   - Therefore, any `newVolume` below `safeVolumeThreshold` (or at 0) is **100% a user action** and **MUST BE IGNORED BY THE GUARD**.
+1. **User Interaction Flags (allow-only)**:
+   - If the volume drop broadcast contains `FLAG_SHOW_UI` (`1`) OR `FLAG_FROM_KEY` (`4096`), the drop **MUST BE ALLOWED TO PASS IMMEDIATELY**.
+   - **WARNING**: On Pixel / Android 16+ `VOLUME_CHANGED_ACTION` never carries `EXTRA_VOLUME_STREAM_FLAGS` (all observed events have `flags=0x0`). The absence of flags therefore proves **nothing**; flags may only ever *allow* a change, never be used to classify a drop as system-forced.
+2. **Real Per-Device Safe Index**:
+   - Android lowers volume (CSD dose 100% / safe-volume timer) to the **per-device safe index**, NOT to a fixed percentage of max (e.g. 6/25 for Bluetooth A2DP on a Pixel 9; the old `max * 0.6 = 15` guess was wrong).
+   - The index MUST be computed like AOSP `SoundDoseHelper` (`SafeVolumeIndex`): the highest music index whose `AudioManager.getStreamVolumeDb(STREAM_MUSIC, index, deviceType)` is `<= config_safe_media_volume_usb_mB / 100` (default `-37` dBFS).
+   - Only outputs AOSP caps (wired headset/headphones, USB headset/device, BT A2DP, BLE headset/broadcast, hearing aid) are considered. Any `newVolume` other than exactly the safe index (including 0) is **100% a user action** and **MUST BE IGNORED BY THE GUARD**.
 3. **Valid System-Forced Drop Conditions**:
    - An event is ONLY treated as a system-forced drop if ALL of the following are true:
-     - `prevVolume > safeVolumeThreshold`
-     - `newVolume == safeVolumeThreshold` (a real system cap lands exactly on the threshold)
-     - `prevVolume - newVolume >= 2` (single-step changes, e.g. Bluetooth earbud buttons, are user actions)
-     - `(flags & FLAG_SHOW_UI) == 0` AND `(flags & FLAG_FROM_KEY) == 0`
-     - Elapsed time since last fix > 800ms (debounce window).
+     - no `FLAG_SHOW_UI` / `FLAG_FROM_KEY`
+     - music is routed to a capped output type and its safe index is known
+     - `newVolume == safeIndex` and `prevVolume - newVolume >= 3`
+     - music is actively playing (`AudioManager.isMusicActive`)
+     - no other music volume change in the previous 1.5 s (slider drags / button repeats arrive as a series; a system cap is a single isolated jump)
+     - no guard restore in the previous 60 s (if the user lowers to the safe index again right after a restore, the user wins)
 
 ---
 
 ## 2. ContentObserver Scope Rules
 - `ContentObserver` in `FixerService` **MUST ONLY** watch protected safety settings keys:
-  - `Settings.Global`: `"audio_safe_volume_state"`, `"audio_safe_csd_current_value"`, `"audio_safe_csd_next_warning"`, `"safe_audio_volume_enforced"`, `"safe_media_volume_enabled"`
+  - `Settings.Global`: `"audio_safe_volume_state"`, `"safe_audio_volume_enforced"`, `"safe_media_volume_enabled"`
   - `Settings.System`: `"volume_limiter_enabled"`, `"safe_media_volume_enabled"`
 - **STRICT PROHIBITION**: Do **NOT** register content observers on actual volume index keys (e.g., `"volume_music"`, `"volume_music_bt_a2dp"`, `"volume_music_headset"`). Observing volume index keys causes observer loops every time a user changes their volume.
+- **Do NOT observe the CSD dose keys** (`"audio_safe_csd_current_value"`, `"audio_safe_csd_next_warning"`, `"audio_safe_csd_dose_records"`). AudioService keeps the live dose in memory and re-persists it on every dose update; reacting to those writes is an endless write war that never changes the live dose.
 
 ---
 
@@ -36,6 +39,7 @@ This document specifies the critical architectural rules, constraints, and requi
 - `audio_safe_volume_state` **MUST BE SET TO `1`** (`SAFE_MEDIA_VOLUME_DISABLED` in AOSP `AudioService`).
   - Do NOT set to `2` (`INACTIVE`), as `1` explicitly forces `AudioService.onConfigureSafeMediaVolume()` to bypass SystemUI warning dialog creation.
 - `safe_media_volume_enabled` and `volume_limiter_enabled` must be set to `0`.
+- The persisted CSD dose keys are reset **one-shot only** (service start and `ACTION_SHUTDOWN`), never periodically, so the dose AudioService loads at the next boot is 0.
 - All `Settings` database writes must occur on `Dispatchers.IO` background coroutines to prevent main-thread IPC locks and ANRs.
 
 ---

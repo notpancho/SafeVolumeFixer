@@ -39,10 +39,14 @@ object SafetySettings {
     /**
      * Applies all overrides. `audio_safe_volume_state` MUST be 1 (SAFE_MEDIA_VOLUME_DISABLED in AOSP).
      *
+     * @param resetDose also overwrite the *persisted* sound dose (CSD) keys. AudioService keeps the live dose
+     *        in memory and re-persists it on every dose update, so writing these periodically only causes a
+     *        write war; it is done one-shot (service start, device shutdown) so the value loaded at the next
+     *        boot is 0.
      * @return true on success, false if the WRITE_SECURE_SETTINGS permission is missing
      *         (logged as "CRITICAL ERROR: ADB Permission missing!").
      */
-    suspend fun apply(context: Context): Boolean = withContext(Dispatchers.IO) {
+    suspend fun apply(context: Context, resetDose: Boolean = false): Boolean = withContext(Dispatchers.IO) {
         val resolver = context.contentResolver
         try {
             attempt { Settings.Global.putInt(resolver, "audio_safe_volume_state", 1) }
@@ -53,10 +57,13 @@ object SafetySettings {
             attempt { Settings.System.putInt(resolver, "safe_media_volume_enabled", 0) }
             attempt { Settings.System.putInt(resolver, "volume_limiter_enabled", 0) }
 
-            attempt { Settings.Global.putFloat(resolver, "audio_safe_csd_current_value", 0.0f) }
-            attempt { Settings.Global.putString(resolver, "audio_safe_csd_dose_records", "[]") }
-            attempt { Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f) }
             attempt { Settings.Global.putInt(resolver, "audio_safe_csd_as_a_feature_enabled", 0) }
+
+            if (resetDose) {
+                attempt { Settings.Global.putFloat(resolver, "audio_safe_csd_current_value", 0.0f) }
+                attempt { Settings.Global.putString(resolver, "audio_safe_csd_dose_records", "[]") }
+                attempt { Settings.Global.putFloat(resolver, "audio_safe_csd_next_warning", 999.0f) }
+            }
             true
         } catch (_: SecurityException) {
             Logger.log(context, "CRITICAL ERROR: ADB Permission missing!")

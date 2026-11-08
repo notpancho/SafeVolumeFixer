@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.5] - 2026-11-07
+### Fixed
+- **Guard Reverting User Decreases**: The guard used a guessed safe threshold (`max * 0.6` = 15/25) and relied on volume flags that this phone never sends (`flags=0x0` on every event), so it reverted user decreases such as 17 -> 15. It now only restores an isolated drop of 3+ steps that lands exactly on the real safe index, while music is playing, with no other volume change in the previous 1.5 s and no restore in the previous 60 s (a repeated drop is always allowed).
+- **Missed Sound-Dose (CSD) Lowering**: Android's 100%-dose lowering (25 -> 6/25 on HB01) was ignored as "below safe threshold". New `SafeVolumeIndex` computes the per-device safe index like AOSP `SoundDoseHelper` (highest index whose `getStreamVolumeDb` <= `config_safe_media_volume_usb_mB`, default -37 dBFS) for the current media output, so this drop is now restored. Wired headsets use the legacy `config_safe_media_volume_index` like AOSP (verified on device: BT A2DP = 6/25, wired = 10/25, matching `dumpsys audio`).
+- **CSD Settings Write War**: The observer no longer watches `audio_safe_csd_current_value` / `audio_safe_csd_next_warning`, and the dose keys are no longer rewritten every 10 s. AudioService keeps the live dose in memory and re-persisted it after every write, which caused a `System Watcher` trigger every 30-60 s without lowering the live dose.
+
+### Added
+- **Shutdown Dose Reset**: On `ACTION_SHUTDOWN` the persisted dose keys are reset (twice, inside `goAsync()`) so AudioService loads a 0% dose at the next boot. Also reset once at service start.
+- **Guard Diagnostics**: `VOL:` lines now include the media output, its safe index, playing state and time since the previous change; a `GUARD:` line at service start logs the computed safe index per output type; `HEARTBEAT` includes the current output and safe index.
+
 ## [2.4.4] - 2026-11-03
 ### Added
 - **Large Persistent Diagnostic Log**: The log is no longer limited to 200 events. It is now a pair of rotating plain-text files (~768 KB each, roughly 15,000 events / several days) in device-protected storage, written on a background thread so it works during Direct Boot and never blocks the main thread. Legacy 200-event logs are imported automatically.

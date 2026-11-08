@@ -3,8 +3,8 @@
 When making modifications to **Safe Volume Fixer**, you MUST read and follow the non-negotiable rules defined in [`REQUIREMENTS.md`](file:///REQUIREMENTS.md).
 
 ### Quick Invariants Checklist:
-1. **Never block user volume decreases**: Users must always be able to bring the volume down to 0 or lower it using screen sliders or hardware buttons. Check `FLAG_SHOW_UI` (`1`) and `FLAG_FROM_KEY` (`4096`) and `newVolume < safeVolumeThreshold`.
-2. **Never observe volume level keys in ContentObserver**: Do NOT observe `"volume_music"`, `"volume_music_headset"`, etc. Only observe safety setting keys like `"safe_media_volume_enabled"`.
+1. **Never block user volume decreases**: Users must always be able to bring the volume down to 0 or lower it using screen sliders or hardware buttons. Flags (`FLAG_SHOW_UI` / `FLAG_FROM_KEY`) may only *allow* a change (Pixel never sends them); the guard may only revert an isolated, multi-step drop landing exactly on the real per-device safe index (`SafeVolumeIndex`) while music plays.
+2. **Never observe volume level keys in ContentObserver**: Do NOT observe `"volume_music"`, `"volume_music_headset"`, etc., nor the CSD dose keys. Only observe safety setting keys like `"safe_media_volume_enabled"`.
 3. **Always use AOSP state `1`**: Set `audio_safe_volume_state` to `1` (`SAFE_MEDIA_VOLUME_DISABLED`).
 4. **Keep Settings IPC on `Dispatchers.IO`**: Never perform `Settings.Global.putInt` or `Settings.System.putInt` synchronously on the main thread.
 5. **Proper Versioning & Changelog Maintenance**:
